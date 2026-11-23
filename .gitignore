@@ -2,4 +2,5 @@
 *.log
 .env
 .vscode/
+dist/
 !appsscript.json

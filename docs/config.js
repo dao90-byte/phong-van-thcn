@@ -1,17 +1,14 @@
 /**
  * config.js
- * Cấu hình duy nhất bạn cần sửa sau khi triển khai Google Apps Script Web App.
+ * Cấu hình kết nối Web App Google Apps Script chính thức.
  */
 window.APP_CONFIG = {
-  // Dán URL Web App từ Google Apps Script (Deploy -> New deployment -> Web app)
-  // Ví dụ: 'https://script.google.com/macros/s/AKfycb.../exec'
-  // Để trống ('') để chạy chế độ Demo kiểm thử giao diện tại chỗ.
-  API_URL: '',
+  API_URL: 'https://script.google.com/macros/s/AKfycbwNVX9fgn0GpAqfG17g5jL9LLHdBv1q66TqkM3w4jfHfL_gWfjsWSFF9_snVUo3yK8MCA/exec',
 
   // Tên hiển thị trên tiêu đề trang
   BRAND_NAME: 'Phỏng vấn Thương hiệu Cá nhân',
   CONSULTANT_NAME: 'Chuyên gia tư vấn',
 
-  // Tắt về false sau khi triển khai thật nếu không muốn ai mở chế độ #demo
-  ENABLE_DEMO: true
+  // Đã tắt chế độ Demo trên bản chạy thật
+  ENABLE_DEMO: false
 };
