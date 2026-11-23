@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; color: #1c1917; margin: 0; padding: 14px; background: #faf9f6; }
+    .row { display: flex; gap: 8px; align-items: end; }
+    .row > div { flex: 1; }
+    label { display: block; font-weight: 600; margin: 8px 0 4px; }
+    select, input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #d6d3d1; border-radius: 6px; background: #fff; font-size: 13px; }
+    .chk-row { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 12px; color: #44403c; }
+    .chk-row input { width: auto; }
+    textarea { width: 100%; box-sizing: border-box; height: 340px; padding: 10px; border: 1px solid #d6d3d1; border-radius: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; background: #fff; line-height: 1.45; }
+    .actions { display: flex; gap: 8px; margin-top: 10px; }
+    .btn { flex: 1; padding: 10px 14px; border: none; border-radius: 6px; background: #0f5257; color: #fff; font-weight: 600; cursor: pointer; font-size: 13px; }
+    .btn-copy { background: #1c1917; }
+    .btn:disabled { opacity: 0.6; }
+    .meta { font-size: 12px; color: #57534e; margin: 6px 0; }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <div style="flex:2;">
+      <label>Khách hàng</label>
+      <select id="clientSelect"></select>
+    </div>
+    <div>
+      <label>Giai đoạn</label>
+      <select id="stageSelect">
+        <option value="1">Giai đoạn 1</option>
+        <option value="2">Giai đoạn 2</option>
+        <option value="3">Giai đoạn 3</option>
+        <option value="4">Giai đoạn 4</option>
+      </select>
+    </div>
+    <div>
+      <label>Đợt (round)</label>
+      <input id="roundInput" value="R1">
+    </div>
+  </div>
+
+  <label class="chk-row">
+    <input type="checkbox" id="anonChk">
+    <span>Ẩn tên khách (thay bằng mã client_id – nhớ tự rà thêm link 1.4.1 nếu cần ẩn danh tuyệt đối)</span>
+  </label>
+
+  <div class="actions" style="margin-top:0;margin-bottom:8px;">
+    <button id="genBtn" class="btn" onclick="generate()">⚡ Dựng bản Markdown</button>
+    <button id="copyBtn" class="btn btn-copy" onclick="copyOutput()" disabled>📋 Copy 1-click để dán LLM</button>
+  </div>
+
+  <div id="metaBox" class="meta">Chọn khách và bấm "Dựng bản Markdown".</div>
+  <textarea id="output" readonly placeholder="Nội dung Markdown tổng hợp sẽ xuất hiện ở đây..."></textarea>
+
+  <script>
+    var EXPORT_TYPE = '<?= exportType ?>';
+
+    google.script.run.withSuccessHandler(function (data) {
+      var sel = document.getElementById('clientSelect');
+      data.clients.forEach(function (c) {
+        var opt = document.createElement('option');
+        opt.value = c.client_id;
+        opt.textContent = c.client_id + ' – ' + c.name + ' (' + c.field + ')';
+        sel.appendChild(opt);
+      });
+    }).adminGetInitData();
+
+    function generate() {
+      var cid = document.getElementById('clientSelect').value;
+      if (!cid) return;
+      var genBtn = document.getElementById('genBtn');
+      genBtn.disabled = true;
+      genBtn.textContent = 'Đang dựng...';
+      document.getElementById('metaBox').textContent = 'Đang gom dữ liệu từ Sheet...';
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          genBtn.disabled = false;
+          genBtn.textContent = '⚡ Dựng bản Markdown';
+          document.getElementById('output').value = res.markdown;
+          document.getElementById('copyBtn').disabled = false;
+          document.getElementById('metaBox').textContent = '✅ Sẵn sàng (' + res.charCount.toLocaleString() + ' ký tự). Bấm Copy rồi dán thẳng vào ChatGPT / Claude / Gemini.';
+        })
+        .withFailureHandler(function (e) {
+          genBtn.disabled = false;
+          genBtn.textContent = '⚡ Dựng bản Markdown';
+          document.getElementById('metaBox').textContent = '❌ Lỗi: ' + (e.message || String(e));
+        })
+        .adminGenerateExport({
+          client_id: cid,
+          stage: document.getElementById('stageSelect').value,
+          round: document.getElementById('roundInput').value,
+          export_type: EXPORT_TYPE,
+          anonymize: document.getElementById('anonChk').checked
+        });
+    }
+
+    function copyOutput() {
+      var text = document.getElementById('output').value;
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(function () {
+        var btn = document.getElementById('copyBtn');
+        btn.textContent = '✅ Đã copy! Dán vào LLM ngay';
+        setTimeout(function () { btn.textContent = '📋 Copy 1-click để dán LLM'; }, 2500);
+      });
+    }
+  </script>
+</body>
+</html>
