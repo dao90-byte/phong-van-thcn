@@ -53,7 +53,7 @@
       el.inAppBanner.classList.remove('hidden');
     }
 
-    // 2. Lấy token từ #k= (và giấu khỏi thanh địa chỉ)
+    // 2. Lấy token từ #k= (và giữ tạm trong sessionStorage để F5 tải lại không bị mất phiên)
     var parsed = Logic.extractTokenFromLocation(window.location.hash, window.location.search);
     var apiConfigured = Boolean(CFG.API_URL && String(CFG.API_URL).trim());
 
@@ -68,7 +68,14 @@
       return;
     }
 
-    if (!parsed.token) {
+    var effectiveToken = parsed.token;
+    if (!effectiveToken) {
+      try {
+        effectiveToken = sessionStorage.getItem('thcn_active_token') || '';
+      } catch (e) {}
+    }
+
+    if (!effectiveToken) {
       showError('🔗', 'Thiếu mã truy cập cá nhân', 'Vui lòng mở đúng đường link riêng có dạng #k=... do nhà tư vấn gửi cho bạn.', CFG.ENABLE_DEMO);
       return;
     }
@@ -78,7 +85,10 @@
       return;
     }
 
-    state.token = parsed.token;
+    state.token = effectiveToken;
+    try {
+      sessionStorage.setItem('thcn_active_token', effectiveToken);
+    } catch (e) {}
     // Giấu token khỏi thanh địa chỉ sau khi đã đọc vào bộ nhớ
     try {
       window.history.replaceState(null, '', window.location.pathname);
@@ -206,6 +216,9 @@
         hydrateSession(sessionData);
       })
       .catch(function (err) {
+        if (err && (err.code === 'NOT_FOUND' || err.code === 'INVALID_TOKEN' || err.code === 'SESSION_CLOSED')) {
+          try { sessionStorage.removeItem('thcn_active_token'); } catch (e) {}
+        }
         var icon = err.code === 'SESSION_CLOSED' ? '✅' : '🔒';
         var title = err.code === 'SESSION_CLOSED' ? 'Phiên phỏng vấn đã đóng' : 'Không tải được phiên phỏng vấn';
         showError(icon, title, err.message || 'Vui lòng kiểm tra kết nối mạng và tải lại trang.');
