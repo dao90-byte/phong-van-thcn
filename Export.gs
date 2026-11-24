@@ -96,7 +96,7 @@ function buildMarkdownExport_(clientId, stage, round, exportType, options) {
   var lines = [];
   lines.push('# HỒ SƠ PHỎNG VẤN – ' + displayName);
   lines.push('- Lĩnh vực: ' + (client.field || 'Chưa rõ') + ' | Nhánh: ' + (resolved.effectiveBranch || 'Chưa chọn') + ' | Đợt: ' + roundStr);
-  lines.push('- Giai đoạn: ' + stageNum + ' (' + (STAGE_TITLES[stageNum] || '') + ') | Ngày xuất: ' + today);
+  lines.push('- Giai đoạn: ' + stageNum + ' | Ngày xuất: ' + today);
   lines.push('- Tự điền: ' + doneCount + '/' + selfEligible.length + ' câu | Trạng thái nộp: ' + submittedLabel);
   lines.push('- Cách nhập: ' + voiceCount + ' câu nói thành chữ (có thể còn lỗi nhận dạng giọng nói), ' + typeCount + ' câu gõ');
   if (anonymize) {

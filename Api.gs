@@ -71,7 +71,7 @@ function dispatchClientAction_(action, token, payload) {
   }
 
   if (String(client.status || '').trim().toLowerCase() === 'closed') {
-    return { ok: false, code: 'SESSION_CLOSED', error: 'Phiên phỏng vấn này đã đóng. Nếu bạn cần mở lại, vui lòng nhắn cho nhà tư vấn.' };
+    return { ok: false, code: 'SESSION_CLOSED', error: 'Phiên phỏng vấn này đã đóng. Nếu anh/chị cần mở lại, vui lòng nhắn cho chuyên gia.' };
   }
 
   switch (action) {
