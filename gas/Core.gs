@@ -1,19 +1,42 @@
 /**
- * Config.gs
- * Hằng số, định nghĩa schema 7 tab, helper đọc/ghi theo tên header (chống lệch cột),
- * tách chuỗi bằng '|' (chống lỗi locale VN ép '1,2' -> 1.2), thoát thẻ XML chống prompt injection,
- * sinh token 24 ký tự an toàn, cache & rate-limit nhẹ.
+ * Core.gs (v3)
+ * Nền tảng lõi: Schema 7 tab + Dashboard, 3 vùng màu tab trực quan,
+ * đọc/ghi an toàn theo tên header dòng 1, tách chuỗi bằng '|' (chống lỗi locale VN),
+ * sinh token 24 ký tự SHA-256, thoát thẻ XML chống prompt injection, cache & rate-limit.
  */
 
 var TABS = {
+  DASHBOARD: 'Dashboard',
   QUESTIONS: 'Questions',
   TEMPLATES: 'Templates',
+  CONFIG: 'Config',
   CLIENTS: 'Clients',
   RESPONSES: 'Responses',
   LIVE_NOTES: 'LiveNotes',
-  STAGE_REVIEWS: 'StageReviews',
-  CONFIG: 'Config',
-  DASHBOARD: 'Dashboard'
+  STAGE_REVIEWS: 'StageReviews'
+};
+
+// Thứ tự & màu sắc 3 vùng tab khoa học trong Google Sheets
+var TAB_ORDER = [
+  TABS.DASHBOARD,
+  TABS.QUESTIONS,
+  TABS.TEMPLATES,
+  TABS.CONFIG,
+  TABS.CLIENTS,
+  TABS.RESPONSES,
+  TABS.LIVE_NOTES,
+  TABS.STAGE_REVIEWS
+];
+
+var TAB_COLORS = {
+  Dashboard: '#0F5257',     // Vùng 1: Vận hành hằng ngày (Xanh ngọc)
+  Questions: '#B45309',     // Vùng 2: Cấu hình nghiệp vụ (Hổ phách)
+  Templates: '#B45309',
+  Config: '#B45309',
+  Clients: '#78716C',       // Vùng 3: Kho dữ liệu thô (Xám)
+  Responses: '#78716C',
+  LiveNotes: '#78716C',
+  StageReviews: '#78716C'
 };
 
 var SCHEMAS = {
@@ -47,7 +70,7 @@ var SCHEMAS = {
   ]
 };
 
-// Các cột bắt buộc format Plain Text ('@') để Sheets không tự ép kiểu số/ngày tháng
+// Các cột bắt buộc format Plain Text ('@') để Google Sheets không tự ép kiểu số/ngày tháng
 var PLAIN_TEXT_COLUMNS = {
   Questions: ['code', 'group', 'branch', 'probes'],
   Templates: ['template_id', 'default_branch', 'codes'],
@@ -59,9 +82,9 @@ var PLAIN_TEXT_COLUMNS = {
 };
 
 var DEFAULT_ROUND = 'R1';
-var CACHE_TTL_SECONDS = 300; // 5 phút; có thể xóa ngay bằng Custom Menu Clear Cache
+var CACHE_TTL_SECONDS = 300;
 var CACHE_KEYS = {
-  STATIC_BUNDLE: 'thcn_static_bundle_v2'
+  STATIC_BUNDLE: 'thcn_static_bundle_v3'
 };
 
 var PROP_KEYS = {
@@ -103,17 +126,10 @@ var STAGE_CHECKLIST_LABELS = {
   ]
 };
 
-/**
- * Lấy Spreadsheet đang gắn với Apps Script.
- */
 function getActiveSpreadsheet_() {
   return SpreadsheetApp.getActiveSpreadsheet();
 }
 
-/**
- * Tách danh sách lưu bằng dấu '|' (hỗ trợ cả fallback dấu phẩy nếu lỡ nhập tay).
- * Không bao giờ để số 1.2 lọt qua vì chuẩn luôn lưu Text dùng '|'.
- */
 function parsePipeList_(raw) {
   if (raw === null || raw === undefined) return [];
   var str = String(raw).trim();
@@ -124,9 +140,6 @@ function parsePipeList_(raw) {
     .filter(function (item) { return item.length > 0; });
 }
 
-/**
- * Chuẩn hóa danh sách giai đoạn (vd: "1|2" -> [1, 2]).
- */
 function parseStageList_(raw) {
   var parts = parsePipeList_(raw);
   var out = [];
@@ -136,12 +149,10 @@ function parseStageList_(raw) {
       out.push(num);
     }
   }
+  out.sort(function (a, b) { return a - b; });
   return out;
 }
 
-/**
- * Chuyển đổi an toàn giá trị boolean từ ô Sheets.
- */
 function toBool_(val) {
   if (val === true) return true;
   if (val === false || val === null || val === undefined) return false;
@@ -149,21 +160,16 @@ function toBool_(val) {
   return s === 'TRUE' || s === '1' || s === 'YES' || s === 'CO' || s === 'CÓ';
 }
 
-/**
- * Đọc toàn bộ 1 tab thành mảng object ánh xạ theo tên cột dòng 1.
- * Kèm theo `_rowIndex` (1-based) để cập nhật chính xác từng dòng.
- */
 function readTabAsObjects_(sheetName) {
   var ss = getActiveSpreadsheet_();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) {
-    throw new Error('Không tìm thấy tab: ' + sheetName + '. Hãy chạy mục "Khởi tạo Sheet" trong menu.');
+    throw new Error('Không tìm thấy tab: ' + sheetName + '. Hãy chạy mục "Nâng cấp / Kiểm tra cấu trúc Sheet" trong menu.');
   }
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
-  if (lastRow < 2 || lastCol < 1) {
-    return [];
-  }
+  if (lastRow < 2 || lastCol < 1) return [];
+
   var values = sheet.getRange(1, 1, lastRow, lastCol).getValues();
   var headers = values[0].map(function (h) { return String(h).trim(); });
   var rows = [];
@@ -175,21 +181,14 @@ function readTabAsObjects_(sheetName) {
       var key = headers[c];
       if (!key) continue;
       var val = rowArr[c];
-      if (val !== '' && val !== null && val !== undefined) {
-        hasAny = true;
-      }
+      if (val !== '' && val !== null && val !== undefined) hasAny = true;
       obj[key] = val;
     }
-    if (hasAny) {
-      rows.push(obj);
-    }
+    if (hasAny) rows.push(obj);
   }
   return rows;
 }
 
-/**
- * Lấy bản đồ header -> chỉ số cột (0-based) và danh sách headers của tab.
- */
 function getTabHeaders_(sheet) {
   var lastCol = sheet.getLastColumn();
   if (lastCol < 1) return { headers: [], map: {} };
@@ -203,10 +202,6 @@ function getTabHeaders_(sheet) {
   return { headers: headers, map: map };
 }
 
-/**
- * Upsert 1 dòng vào tab theo hàm matchFn(rowObj) dựa hoàn toàn vào tên header.
- * Trả về { action: 'inserted'|'updated', rowIndex: number }.
- */
 function upsertRowByHeader_(sheetName, recordObj, matchFn) {
   var ss = getActiveSpreadsheet_();
   var sheet = ss.getSheetByName(sheetName);
@@ -262,9 +257,6 @@ function upsertRowByHeader_(sheetName, recordObj, matchFn) {
   }
 }
 
-/**
- * Đảm bảo các cột khóa có format Plain Text ('@') trước khi ghi giá trị.
- */
 function applyPlainTextToRowRange_(rowRange, headers, plainCols) {
   if (!plainCols || plainCols.length === 0) return;
   var sheet = rowRange.getSheet();
@@ -276,25 +268,17 @@ function applyPlainTextToRowRange_(rowRange, headers, plainCols) {
   }
 }
 
-/**
- * Chèn thêm 1 dòng mới vào cuối tab theo tên header (append-only).
- */
 function appendRowByHeader_(sheetName, recordObj) {
   return upsertRowByHeader_(sheetName, recordObj, null);
 }
 
-/**
- * Đọc Questions, Templates, Config có dùng CacheService (5 phút) để giảm thời gian đọc Sheet.
- */
 function getStaticBundle_() {
   var cache = CacheService.getScriptCache();
   var cached = cache.get(CACHE_KEYS.STATIC_BUNDLE);
   if (cached) {
     try {
       return JSON.parse(cached);
-    } catch (e) {
-      // Fallback đọc lại từ Sheet nếu cache lỗi
-    }
+    } catch (e) {}
   }
 
   var questions = readTabAsObjects_(TABS.QUESTIONS).map(function (q) {
@@ -350,23 +334,14 @@ function getStaticBundle_() {
     if (serialized.length < 95000) {
       cache.put(CACHE_KEYS.STATIC_BUNDLE, serialized, CACHE_TTL_SECONDS);
     }
-  } catch (e) {
-    // Bỏ qua lỗi vượt kích thước cache
-  }
+  } catch (e) {}
   return bundle;
 }
 
-/**
- * Xóa bộ nhớ đệm cấu hình ngay lập tức (gọi từ Custom Menu hoặc sau khi Setup).
- */
 function clearStaticCache_() {
-  var cache = CacheService.getScriptCache();
-  cache.remove(CACHE_KEYS.STATIC_BUNDLE);
+  CacheService.getScriptCache().remove(CACHE_KEYS.STATIC_BUNDLE);
 }
 
-/**
- * Sinh token 24 ký tự URL-safe có entropy cao bằng SHA-256 trên 2 UUID + thời gian.
- */
 function generateSecureToken_(length) {
   var len = length || 24;
   var seed = Utilities.getUuid() + '|' + Utilities.getUuid() + '|' + Date.now() + '|' + Math.random();
@@ -379,18 +354,11 @@ function generateSecureToken_(length) {
   return b64.substring(0, len);
 }
 
-/**
- * Thoát các chuỗi thẻ đóng giống XML (vd: '</du_lieu>') trong dữ liệu do khách nhập
- * nhằm chống prompt injection khi xuất Markdown cho LLM.
- */
 function escapeXmlTags_(text) {
   if (text === null || text === undefined) return '';
   return String(text).replace(/<\s*\//g, '<\\/');
 }
 
-/**
- * Định dạng đoạn văn thành Markdown blockquote sạch sẽ, an toàn với nhiều dòng.
- */
 function toBlockquote_(text) {
   var safe = escapeXmlTags_(text).trim();
   if (!safe) return '> *(chưa có nội dung)*';
@@ -400,9 +368,6 @@ function toBlockquote_(text) {
     .join('\n');
 }
 
-/**
- * Thay biến {name}, {field} trong văn bản câu hỏi / lời chào.
- */
 function interpolateVars_(text, client) {
   if (!text) return '';
   return String(text)
@@ -410,9 +375,6 @@ function interpolateVars_(text, client) {
     .replace(/\{field\}/g, String((client && client.field) || 'lĩnh vực của anh/chị'));
 }
 
-/**
- * Đếm số từ (tương thích tiếng Việt Unicode).
- */
 function countWords_(text) {
   if (!text) return 0;
   var cleaned = String(text).trim();
@@ -420,14 +382,10 @@ function countWords_(text) {
   return cleaned.split(/\s+/).filter(Boolean).length;
 }
 
-/**
- * Rate-limit nhẹ cho các request sai token (chống dò brute-force).
- */
 function isRateLimited_() {
   var cache = CacheService.getScriptCache();
   var bucket = 'thcn_bad_token_' + Math.floor(Date.now() / 60000);
-  var count = parseInt(cache.get(bucket) || '0', 10);
-  return count >= 20;
+  return parseInt(cache.get(bucket) || '0', 10) >= 20;
 }
 
 function recordBadTokenAttempt_() {
@@ -437,9 +395,112 @@ function recordBadTokenAttempt_() {
   cache.put(bucket, String(count), 120);
 }
 
-/**
- * Trả về ISO timestamp theo múi giờ Việt Nam (hoặc chuẩn ISO UTC).
- */
 function nowIso_() {
   return new Date().toISOString();
+}
+
+function findClientByToken_(token) {
+  var clients = readTabAsObjects_(TABS.CLIENTS);
+  for (var i = 0; i < clients.length; i++) {
+    if (String(clients[i].token || '').trim() === token) {
+      return normalizeClient_(clients[i]);
+    }
+  }
+  return null;
+}
+
+function findClientById_(clientId) {
+  var clients = readTabAsObjects_(TABS.CLIENTS);
+  for (var i = 0; i < clients.length; i++) {
+    if (String(clients[i].client_id || '').trim() === String(clientId).trim()) {
+      return normalizeClient_(clients[i]);
+    }
+  }
+  return null;
+}
+
+function normalizeClient_(raw) {
+  return {
+    _rowIndex: raw._rowIndex,
+    client_id: String(raw.client_id || '').trim(),
+    token: String(raw.token || '').trim(),
+    name: String(raw.name || '').trim(),
+    field: String(raw.field || '').trim(),
+    template: String(raw.template || 'chuan').trim(),
+    include: parsePipeList_(raw.include),
+    exclude: parsePipeList_(raw.exclude),
+    branch: String(raw.branch || '').trim().toUpperCase(),
+    stages_open: parseStageList_(raw.stages_open),
+    stages_locked: parseStageList_(raw.stages_locked),
+    show_probes: toBool_(raw.show_probes),
+    intro: String(raw.intro || '').trim(),
+    deadline: String(raw.deadline || '').trim(),
+    status: String(raw.status || 'active').trim().toLowerCase(),
+    consent_at: String(raw.consent_at || '').trim(),
+    consent_version: String(raw.consent_version || '').trim(),
+    created_at: String(raw.created_at || '').trim()
+  };
+}
+
+/**
+ * Lọc danh sách câu hỏi áp dụng cho 1 khách cụ thể.
+ * - options.includeLive: true cho Export/CommandCenter, FALSE (mặc định) cho trang khách.
+ * - options.stageFilter: số giai đoạn cụ thể (1..4), bỏ trống sẽ lọc theo stages_open.
+ */
+function resolveClientQuestions_(client, bundle, options) {
+  var opts = options || {};
+  var includeLive = !!opts.includeLive;
+  var stageFilter = opts.stageFilter ? parseInt(opts.stageFilter, 10) : null;
+
+  var tpl = bundle.templates[client.template] || bundle.templates['chuan'] || { codes: [], default_branch: '' };
+  var codeSet = {};
+  tpl.codes.forEach(function (c) { codeSet[c] = true; });
+  client.include.forEach(function (c) { codeSet[c] = true; });
+  client.exclude.forEach(function (c) { delete codeSet[c]; });
+
+  var effectiveBranch = client.branch || tpl.default_branch || '';
+  var openStages = stageFilter ? [stageFilter] : client.stages_open;
+  var needsBranchChoice = false;
+  var hasBranchA = false;
+  var hasBranchB = false;
+
+  var matched = [];
+  bundle.questions.forEach(function (q) {
+    if (!q.active) return;
+    if (!codeSet[q.code]) return;
+    if (openStages.indexOf(q.stage) === -1) return;
+    if (!includeLive && q.mode === 'live') return;
+
+    if (q.branch === 'A') hasBranchA = true;
+    if (q.branch === 'B') hasBranchB = true;
+
+    if (q.branch) {
+      if (!effectiveBranch) {
+        needsBranchChoice = true;
+        return;
+      }
+      if (q.branch !== effectiveBranch) return;
+    }
+
+    matched.push(q);
+  });
+
+  if (!effectiveBranch && !(hasBranchA && hasBranchB)) {
+    needsBranchChoice = false;
+  }
+
+  return {
+    questions: matched,
+    effectiveBranch: effectiveBranch,
+    needsBranchChoice: needsBranchChoice
+  };
+}
+
+function getClientAppBaseUrl_() {
+  return PropertiesService.getScriptProperties().getProperty(PROP_KEYS.WEB_APP_URL) || '';
+}
+
+function buildClientLink_(token) {
+  var baseUrl = getClientAppBaseUrl_();
+  return baseUrl ? (baseUrl + '#k=' + token) : ('#k=' + token);
 }

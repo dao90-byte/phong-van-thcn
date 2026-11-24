@@ -1,9 +1,8 @@
 /**
- * Api.gs
- * Endpoint công khai duy nhất của Google Apps Script Web App.
- * - Chỉ phục vụ 5 action phía khách hàng (KHÔNG có bất kỳ API quản trị nào trên internet).
- * - 100% đi qua doPost với Content-Type: text/plain (JSON body) để tránh CORS preflight
- *   và tuyệt đối không đặt token lên URL query string.
+ * ClientApi.gs (v3)
+ * Endpoint công khai duy nhất của Google Apps Script Web App (phía khách hàng).
+ * - Chỉ phục vụ 5 action phía khách (doPost text/plain JSON), không phơi API quản trị ra internet.
+ * - Tự động gửi Email thông báo (kèm toàn bộ câu trả lời sạch) tới chuyên gia ngay khi khách bấm Nộp bài.
  */
 
 function doGet() {
@@ -11,7 +10,7 @@ function doGet() {
     ok: true,
     data: {
       service: 'THCN Interview Client API',
-      version: '2.0',
+      version: '3.0',
       note: 'Sử dụng POST text/plain với JSON payload.'
     }
   });
@@ -34,8 +33,7 @@ function doPost(e) {
     var token = String(body.token || '').trim();
     var payload = body.payload || {};
 
-    var result = dispatchClientAction_(action, token, payload);
-    return jsonResponse_(result);
+    return jsonResponse_(dispatchClientAction_(action, token, payload));
   } catch (err) {
     return jsonResponse_({
       ok: false,
@@ -51,9 +49,6 @@ function jsonResponse_(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-/**
- * Hàm điều phối trung tâm (tách riêng để dễ kiểm thử tự động không cần HTTP).
- */
 function dispatchClientAction_(action, token, payload) {
   if (!token || token.length < 8) {
     recordBadTokenAttempt_();
@@ -61,13 +56,13 @@ function dispatchClientAction_(action, token, payload) {
   }
 
   if (isRateLimited_()) {
-    return { ok: false, code: 'RATE_LIMITED', error: 'Hệ thống đang tạm giới hạn truy cập. Vui lòng thử lại sau 1 phút.' };
+    return { ok: false, code: 'RATE_LIMITED', error: 'Hệ thống đang tạm giới hạn truy cập. Anh/chị vui lòng thử lại sau 1 phút.' };
   }
 
   var client = findClientByToken_(token);
   if (!client) {
     recordBadTokenAttempt_();
-    return { ok: false, code: 'NOT_FOUND', error: 'Không tìm thấy hồ sơ phỏng vấn. Vui lòng kiểm tra lại đường link.' };
+    return { ok: false, code: 'NOT_FOUND', error: 'Không tìm thấy hồ sơ phỏng vấn. Anh/chị vui lòng kiểm tra lại đường link.' };
   }
 
   if (String(client.status || '').trim().toLowerCase() === 'closed') {
@@ -90,117 +85,11 @@ function dispatchClientAction_(action, token, payload) {
   }
 }
 
-function findClientByToken_(token) {
-  var clients = readTabAsObjects_(TABS.CLIENTS);
-  for (var i = 0; i < clients.length; i++) {
-    if (String(clients[i].token || '').trim() === token) {
-      return normalizeClient_(clients[i]);
-    }
-  }
-  return null;
-}
-
-function findClientById_(clientId) {
-  var clients = readTabAsObjects_(TABS.CLIENTS);
-  for (var i = 0; i < clients.length; i++) {
-    if (String(clients[i].client_id || '').trim() === String(clientId).trim()) {
-      return normalizeClient_(clients[i]);
-    }
-  }
-  return null;
-}
-
-function normalizeClient_(raw) {
-  return {
-    _rowIndex: raw._rowIndex,
-    client_id: String(raw.client_id || '').trim(),
-    token: String(raw.token || '').trim(),
-    name: String(raw.name || '').trim(),
-    field: String(raw.field || '').trim(),
-    template: String(raw.template || 'chuan').trim(),
-    include: parsePipeList_(raw.include),
-    exclude: parsePipeList_(raw.exclude),
-    branch: String(raw.branch || '').trim().toUpperCase(),
-    stages_open: parseStageList_(raw.stages_open),
-    stages_locked: parseStageList_(raw.stages_locked),
-    show_probes: toBool_(raw.show_probes),
-    intro: String(raw.intro || '').trim(),
-    deadline: String(raw.deadline || '').trim(),
-    status: String(raw.status || 'active').trim().toLowerCase(),
-    consent_at: String(raw.consent_at || '').trim(),
-    consent_version: String(raw.consent_version || '').trim(),
-    created_at: String(raw.created_at || '').trim()
-  };
-}
-
-/**
- * Lọc danh sách câu hỏi áp dụng cho 1 khách cụ thể.
- * - options.includeLive: true cho Export/Admin, FALSE (mặc định) cho trang khách.
- * - options.stageFilter: số giai đoạn cụ thể (vd: 1 hoặc 2), nếu bỏ trống sẽ lọc theo stages_open.
- */
-function resolveClientQuestions_(client, bundle, options) {
-  var opts = options || {};
-  var includeLive = !!opts.includeLive;
-  var stageFilter = opts.stageFilter ? parseInt(opts.stageFilter, 10) : null;
-
-  var tpl = bundle.templates[client.template] || bundle.templates['chuan'] || { codes: [], default_branch: '' };
-  var codeSet = {};
-  tpl.codes.forEach(function (c) { codeSet[c] = true; });
-  client.include.forEach(function (c) { codeSet[c] = true; });
-  client.exclude.forEach(function (c) { delete codeSet[c]; });
-
-  var effectiveBranch = client.branch || tpl.default_branch || '';
-  var openStages = stageFilter ? [stageFilter] : client.stages_open;
-  var needsBranchChoice = false;
-  var hasBranchA = false;
-  var hasBranchB = false;
-
-  var matched = [];
-  bundle.questions.forEach(function (q) {
-    if (!q.active) return;
-    if (!codeSet[q.code]) return;
-    if (openStages.indexOf(q.stage) === -1) return;
-    if (!includeLive && q.mode === 'live') return;
-
-    if (q.branch === 'A') hasBranchA = true;
-    if (q.branch === 'B') hasBranchB = true;
-
-    if (q.branch) {
-      if (!effectiveBranch) {
-        // Chưa chọn nhánh -> tạm chưa hiện câu nhánh A/B; đánh dấu để UI hỏi chọn nhánh trước 2.3
-        needsBranchChoice = true;
-        return;
-      }
-      if (q.branch !== effectiveBranch) {
-        return;
-      }
-    }
-
-    matched.push(q);
-  });
-
-  // Chỉ yêu cầu chọn nhánh nếu template của khách thực sự có cả 2 nhánh A & B trong giai đoạn mở
-  if (!effectiveBranch && !(hasBranchA && hasBranchB)) {
-    needsBranchChoice = false;
-  }
-
-  return {
-    questions: matched,
-    effectiveBranch: effectiveBranch,
-    needsBranchChoice: needsBranchChoice
-  };
-}
-
-/**
- * Action 1: getSession
- * TUYỆT ĐỐI KHÔNG trả về hidden_goal, question_live hay các câu mode = 'live'.
- */
 function handleGetSession_(client, payload) {
   var round = String((payload && payload.round) || DEFAULT_ROUND).trim() || DEFAULT_ROUND;
   var bundle = getStaticBundle_();
   var resolved = resolveClientQuestions_(client, bundle, { includeLive: false });
 
-  // Chỉ gửi đúng trường an toàn cho trình duyệt khách
   var safeQuestions = resolved.questions.map(function (q) {
     return {
       code: q.code,
@@ -219,7 +108,6 @@ function handleGetSession_(client, payload) {
     };
   });
 
-  // Đọc các câu trả lời đã lưu của riêng khách này & đúng đợt round
   var responsesMap = {};
   var allowedCodes = {};
   safeQuestions.forEach(function (q) { allowedCodes[q.code] = true; });
@@ -243,7 +131,6 @@ function handleGetSession_(client, payload) {
     };
   });
 
-  // Trạng thái đã nộp bài từng giai đoạn từ StageReviews
   var submittedStages = {};
   readTabAsObjects_(TABS.STAGE_REVIEWS).forEach(function (sr) {
     if (String(sr.client_id || '').trim() !== client.client_id) return;
@@ -287,10 +174,6 @@ function handleGetSession_(client, payload) {
   };
 }
 
-/**
- * Action 2: saveConsent
- * Ghi thời điểm và phiên bản điều khoản khách đã đồng ý.
- */
 function handleSaveConsent_(client, payload) {
   var bundle = getStaticBundle_();
   var version = String((payload && payload.consent_version) || bundle.config.consent_version || 'v1.0').trim();
@@ -298,7 +181,7 @@ function handleSaveConsent_(client, payload) {
 
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) {
-    return { ok: false, code: 'LOCK_TIMEOUT', error: 'Hệ thống đang bận, vui lòng thử lại sau vài giây.' };
+    return { ok: false, code: 'LOCK_TIMEOUT', error: 'Hệ thống đang bận, anh/chị vui lòng thử lại sau vài giây.' };
   }
   try {
     upsertRowByHeader_(TABS.CLIENTS, {
@@ -311,35 +194,25 @@ function handleSaveConsent_(client, payload) {
     lock.releaseLock();
   }
 
-  return {
-    ok: true,
-    data: { consent_at: ts, consent_version: version }
-  };
+  return { ok: true, data: { consent_at: ts, consent_version: version } };
 }
 
-/**
- * Action 3: setBranch
- * Lưu nhánh A hoặc B khi khách chọn trước câu 2.3 và trả về luôn session đã cập nhật.
- */
 function handleSetBranch_(client, payload) {
   var branch = String((payload && payload.branch) || '').trim().toUpperCase();
   if (branch !== 'A' && branch !== 'B') {
     return { ok: false, code: 'INVALID_BRANCH', error: 'Nhánh không hợp lệ (chỉ nhận A hoặc B).' };
   }
 
-  // Nếu Giai đoạn 2 đã bị khóa thì không cho đổi nhánh
   if (client.stages_locked.indexOf(2) !== -1) {
     return { ok: false, code: 'STAGE_LOCKED', error: 'Giai đoạn 2 đã được khóa, không thể thay đổi nhánh.' };
   }
 
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) {
-    return { ok: false, code: 'LOCK_TIMEOUT', error: 'Hệ thống đang bận, vui lòng thử lại.' };
+    return { ok: false, code: 'LOCK_TIMEOUT', error: 'Hệ thống đang bận, anh/chị vui lòng thử lại.' };
   }
   try {
-    upsertRowByHeader_(TABS.CLIENTS, {
-      branch: branch
-    }, function (row) {
+    upsertRowByHeader_(TABS.CLIENTS, { branch: branch }, function (row) {
       return String(row.client_id || '').trim() === client.client_id;
     });
   } finally {
@@ -350,11 +223,6 @@ function handleSetBranch_(client, payload) {
   return handleGetSession_(client, payload);
 }
 
-/**
- * Action 4: saveAnswer
- * Upsert câu trả lời vào tab Responses theo khóa (client_id, round, code).
- * KHÔNG đụng vào tab Clients để giữ LockService cực ngắn và tránh xung đột.
- */
 function handleSaveAnswer_(client, payload) {
   var code = String((payload && payload.code) || '').trim();
   var round = String((payload && payload.round) || DEFAULT_ROUND).trim() || DEFAULT_ROUND;
@@ -377,20 +245,17 @@ function handleSaveAnswer_(client, payload) {
   }
 
   if (client.stages_locked.indexOf(targetQuestion.stage) !== -1) {
-    return { ok: false, code: 'STAGE_LOCKED', error: 'Giai đoạn ' + targetQuestion.stage + ' đã khóa, chỉ được xem lại.' };
+    return { ok: false, code: 'STAGE_LOCKED', error: 'Phần này đã được khóa, chỉ được xem lại.' };
   }
 
   var answer = String(payload.answer === undefined || payload.answer === null ? '' : payload.answer).trim();
   var answerExtra = String(payload.answer_extra === undefined || payload.answer_extra === null ? '' : payload.answer_extra).trim();
   var inputMode = String(payload.input_mode || 'go').trim().toLowerCase();
-  if (['go', 'noi', 'hon_hop'].indexOf(inputMode) === -1) {
-    inputMode = 'go';
-  }
+  if (['go', 'noi', 'hon_hop'].indexOf(inputMode) === -1) inputMode = 'go';
 
   var flagsArr = Array.isArray(payload.flags) ? payload.flags : parsePipeList_(payload.flags);
   var matchedVagueArr = Array.isArray(payload.matched_vague) ? payload.matched_vague : parsePipeList_(payload.matched_vague);
-  var combinedText = answer + (answerExtra ? ' ' + answerExtra : '');
-  var wordCount = countWords_(combinedText);
+  var wordCount = countWords_(answer + (answerExtra ? ' ' + answerExtra : ''));
   var ts = nowIso_();
 
   var record = {
@@ -423,19 +288,10 @@ function handleSaveAnswer_(client, payload) {
 
   return {
     ok: true,
-    data: {
-      code: code,
-      round: round,
-      word_count: wordCount,
-      updated_at: ts
-    }
+    data: { code: code, round: round, word_count: wordCount, updated_at: ts }
   };
 }
 
-/**
- * Action 5: submitStage
- * Ghi nhận thời điểm khách hoàn tất nộp bài cho một giai đoạn vào StageReviews.
- */
 function handleSubmitStage_(client, payload) {
   var stage = parseInt(payload && payload.stage, 10);
   var round = String((payload && payload.round) || DEFAULT_ROUND).trim() || DEFAULT_ROUND;
@@ -443,15 +299,14 @@ function handleSubmitStage_(client, payload) {
   if (isNaN(stage) || client.stages_open.indexOf(stage) === -1) {
     return { ok: false, code: 'INVALID_STAGE', error: 'Giai đoạn nộp bài không hợp lệ.' };
   }
-
   if (client.stages_locked.indexOf(stage) !== -1) {
-    return { ok: false, code: 'STAGE_LOCKED', error: 'Giai đoạn này đã được khóa.' };
+    return { ok: false, code: 'STAGE_LOCKED', error: 'Phần này đã được khóa.' };
   }
 
   var ts = nowIso_();
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) {
-    return { ok: false, code: 'LOCK_TIMEOUT', error: 'Hệ thống đang bận, vui lòng bấm gửi lại.' };
+    return { ok: false, code: 'LOCK_TIMEOUT', error: 'Hệ thống đang bận, anh/chị vui lòng bấm gửi lại.' };
   }
   try {
     upsertRowByHeader_(TABS.STAGE_REVIEWS, {
@@ -468,8 +323,49 @@ function handleSubmitStage_(client, payload) {
     lock.releaseLock();
   }
 
+  // Tự động gửi Email thông báo + toàn bộ câu trả lời sạch về cho chuyên gia (không làm gián đoạn nộp bài nếu lỗi quota)
+  var emailSent = false;
+  try {
+    emailSent = sendSubmitNotificationEmail_(client, stage, round);
+  } catch (mailErr) {
+    emailSent = false;
+  }
+
   return {
     ok: true,
-    data: { stage: stage, round: round, submitted_at: ts }
+    data: { stage: stage, round: round, submitted_at: ts, email_notified: emailSent }
   };
+}
+
+function sendSubmitNotificationEmail_(client, stage, round) {
+  var bundle = getStaticBundle_();
+  var shouldNotify = bundle.config.notify_email_on_submit === undefined
+    ? true
+    : toBool_(bundle.config.notify_email_on_submit);
+  if (!shouldNotify) return false;
+  if (typeof MailApp === 'undefined' || typeof MailApp.sendEmail !== 'function') return false;
+
+  var ownerEmail = '';
+  try {
+    ownerEmail = Session.getEffectiveUser().getEmail();
+  } catch (e) {}
+  if (!ownerEmail) return false;
+
+  var ssUrl = '';
+  try {
+    ssUrl = getActiveSpreadsheet_().getUrl();
+  } catch (e) {}
+
+  var cleanText = buildCleanAnswersText_(client.client_id, stage, round, { anonymize: false });
+  var subject = '[THCN] Khách ' + client.name + ' (' + client.client_id + ') đã hoàn thành Giai đoạn ' + stage;
+  var body = [
+    'Khách hàng ' + client.name + ' (' + client.client_id + ' – ' + (client.field || 'Chưa rõ') + ') vừa bấm Hoàn tất & Gửi bài cho Giai đoạn ' + stage + '.',
+    ssUrl ? ('Mở Sheet & Trung tâm Điều khiển: ' + ssUrl) : '',
+    '',
+    '============================================================',
+    cleanText
+  ].join('\n');
+
+  MailApp.sendEmail(ownerEmail, subject, body);
+  return true;
 }

@@ -1,8 +1,8 @@
 /**
- * mock_gas.js
- * Môi trường giả lập đầy đủ Google Apps Script (SpreadsheetApp, LockService, CacheService,
+ * mock_gas.js (v3)
+ * Môi trường giả lập đầy đủ Google Apps Script (SpreadsheetApp, MailApp, LockService, CacheService,
  * PropertiesService, Utilities, DriveApp, ContentService, ScriptApp, Session)
- * để chạy test trực tiếp các file .gs thật bằng JavaScriptCore (jsc) / Node.
+ * để chạy test trực tiếp các file .gs thật bằng JavaScriptCore (jsc).
  */
 
 (function (global) {
@@ -13,6 +13,8 @@
     var formats = {};
     var protections = [];
     var frozenRows = 0;
+    var tabColor = null;
+    var condRules = [];
 
     function ensureSize(maxR, maxC) {
       while (grid.length < maxR) grid.push([]);
@@ -25,7 +27,13 @@
       _name: name,
       _grid: grid,
       _formats: formats,
+      _tabColor: null,
+      _condRules: condRules,
       getName: function () { return name; },
+      clear: function () { grid.length = 0; },
+      setTabColor: function (hex) { tabColor = hex; this._tabColor = hex; },
+      getTabColor: function () { return tabColor; },
+      setConditionalFormatRules: function (rules) { condRules = rules || []; this._condRules = condRules; },
       getLastRow: function () {
         for (var r = grid.length - 1; r >= 0; r--) {
           for (var c = 0; c < grid[r].length; c++) {
@@ -112,16 +120,19 @@
   function resetGasMock() {
     var sheets = {};
     var sheetOrder = [];
+    var activeSheet = null;
     var cacheStore = {};
     var propsStore = {};
     var driveFolders = {};
     var triggers = [];
+    var sentEmails = [];
     var uuidCounter = 0;
 
     function createSS() {
       return {
         getId: function () { return 'SS_MOCK_001'; },
-        getName: function () { return 'THCN_Database'; },
+        getName: function () { return 'CSDL Phỏng vấn THCN'; },
+        getUrl: function () { return 'https://docs.google.com/spreadsheets/d/SS_MOCK_001/edit'; },
         getSheetByName: function (n) { return sheets[n] || null; },
         getSheets: function () { return sheetOrder.map(function (n) { return sheets[n]; }); },
         insertSheet: function (n) {
@@ -134,6 +145,14 @@
           var n = s.getName();
           delete sheets[n];
           sheetOrder = sheetOrder.filter(function (x) { return x !== n; });
+        },
+        setActiveSheet: function (s) { activeSheet = s; },
+        moveActiveSheet: function (pos1Based) {
+          if (!activeSheet) return;
+          var name = activeSheet.getName();
+          sheetOrder = sheetOrder.filter(function (x) { return x !== name; });
+          var idx = Math.max(0, Math.min(pos1Based - 1, sheetOrder.length));
+          sheetOrder.splice(idx, 0, name);
         },
         toast: function () {}
       };
@@ -148,6 +167,16 @@
       flush: function () {},
       newDataValidation: function () {
         return { requireCheckbox: function () { return { build: function () { return {}; } }; } };
+      },
+      newConditionalFormatRule: function () {
+        var r = {
+          whenTextContains: function () { return r; },
+          setBackground: function () { return r; },
+          setFontColor: function () { return r; },
+          setRanges: function () { return r; },
+          build: function () { return { rule: true }; }
+        };
+        return r;
       },
       getUi: function () {
         return {
@@ -164,6 +193,12 @@
           alert: function () {},
           showModalDialog: function () {}
         };
+      }
+    };
+
+    global.MailApp = {
+      sendEmail: function (to, subject, body) {
+        sentEmails.push({ to: to, subject: subject, body: body });
       }
     };
 
@@ -209,10 +244,12 @@
     };
 
     global.Session = {
-      getScriptTimeZone: function () { return 'Asia/Ho_Chi_Minh'; }
+      getScriptTimeZone: function () { return 'Asia/Ho_Chi_Minh'; },
+      getEffectiveUser: function () {
+        return { getEmail: function () { return 'daothuan90@gmail.com'; } };
+      }
     };
 
-    // Deterministic-enough pseudo SHA-256 + base64 web-safe for testing token entropy & length
     global.Utilities = {
       DigestAlgorithm: { SHA_256: 'SHA_256' },
       getUuid: function () {
@@ -338,7 +375,8 @@
       ss: ss,
       cacheStore: cacheStore,
       propsStore: propsStore,
-      driveFolders: driveFolders
+      driveFolders: driveFolders,
+      sentEmails: sentEmails
     };
   }
 

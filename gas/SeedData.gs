@@ -463,6 +463,21 @@ function getSeedConfig_() {
       note: 'Nội dung ô tick đồng ý ở màn chào'
     },
     {
+      key: 'notify_email_on_submit',
+      value: 'TRUE',
+      note: 'Tự động gửi email báo cho chuyên gia (kèm toàn bộ câu trả lời sạch) ngay khi khách bấm Hoàn tất & Gửi'
+    },
+    {
+      key: 'zalo_invite_template',
+      value: 'Chào anh/chị {name},\n\nGửi anh/chị đường link chuẩn bị dữ kiện trước buổi làm việc xây dựng thương hiệu cá nhân:\n{link}\n\n{deadline_line}Anh/chị có thể điền dần khi rảnh (hệ thống tự lưu nháp) và nên mở bằng Safari/Chrome để nhập giọng nói mượt nhất nhé!',
+      note: 'Mẫu tin nhắn Zalo 1-click Copy khi tạo khách mới (biến: {name}, {field}, {link}, {deadline_line})'
+    },
+    {
+      key: 'zalo_next_stage_template',
+      value: 'Chào anh/chị {name},\n\nPhần chuẩn bị cho Giai đoạn {next_stage} đã được mở sẵn ngay trên đường link cũ của anh/chị:\n{link}\n\nAnh/chị mở lại đường link này để điền tiếp trước buổi làm việc sắp tới nhé!',
+      note: 'Mẫu tin nhắn Zalo 1-click Copy sau khi chốt giai đoạn cũ & mở giai đoạn tiếp theo'
+    },
+    {
       key: 'prompt_preread_s1',
       value: [
         'Đóng vai chuyên gia tư vấn thương hiệu cá nhân. Chỉ dựa trên <du_lieu> (các câu khách tự điền trước Buổi 1):',
