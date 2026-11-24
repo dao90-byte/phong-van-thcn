@@ -104,6 +104,56 @@ assert(q.length === 2 && q[1].answer === 'a' && q[0].answer === 'v2',
 q = Logic.dequeuePendingSave(q, '1.1.2', 'R1');
 assert(q.length === 1 && q[0].code === '1.1.3', 'dequeuePendingSave xóa đúng mục đã đồng bộ');
 
+// 6. Smart Navigation from Review screen
+var navQs = [
+  { code: '1.1.2', stage: 1, locked: false },
+  { code: '1.1.3', stage: 1, locked: false },
+  { code: '1.1.4', stage: 1, locked: false },
+  { code: '1.1.5', stage: 1, locked: false }
+];
+var navResp = {
+  '1.1.2': { answer: 'đã trả lời' },
+  '1.1.4': { answer: 'đã trả lời' }
+};
+// Mở câu chưa làm 1.1.3 (idx 1) từ màn Xem lại -> nhảy thẳng sang câu chưa làm kế tiếp 1.1.5 (idx 3), bỏ qua 1.1.4 đã làm!
+var tNextUnans = Logic.findNextNavigationTarget({
+  questions: navQs,
+  responses: navResp,
+  currentIndex: 1,
+  activeStage: 1,
+  returnToReviewMode: true,
+  openedUnansweredFromReview: true
+});
+assert(tNextUnans.type === 'question' && tNextUnans.index === 3,
+  'Từ màn Xem lại: xong câu chưa trả lời 1.1.3 -> nhảy thẳng sang câu chưa trả lời kế tiếp 1.1.5 (bỏ qua 1.1.4 đã làm)');
+
+// Sau khi làm xong cả 1.1.3 và 1.1.5 -> không còn câu chưa làm nào -> quay thẳng về Review!
+navResp['1.1.3'] = { answer: 'vừa điền' };
+navResp['1.1.5'] = { answer: 'vừa điền' };
+var tBackReview = Logic.findNextNavigationTarget({
+  questions: navQs,
+  responses: navResp,
+  currentIndex: 3,
+  activeStage: 1,
+  returnToReviewMode: true,
+  openedUnansweredFromReview: true
+});
+assert(tBackReview.type === 'review',
+  'Từ màn Xem lại: xong câu chưa trả lời cuối cùng -> quay thẳng về màn Xem lại');
+
+// Nếu mở câu ĐÃ trả lời (1.1.2) từ màn Xem lại để sửa trong khi 1.1.5 vẫn trống -> quay thẳng về Review!
+delete navResp['1.1.5'];
+var tEditAnswered = Logic.findNextNavigationTarget({
+  questions: navQs,
+  responses: navResp,
+  currentIndex: 0,
+  activeStage: 1,
+  returnToReviewMode: true,
+  openedUnansweredFromReview: false
+});
+assert(tEditAnswered.type === 'review',
+  'Từ màn Xem lại: sửa câu đã trả lời 1.1.2 -> quay thẳng về màn Xem lại');
+
 print('\n==============================');
 print('CLIENT LOGIC TESTS: ' + passed + ' passed, ' + failed + ' failed');
 if (failed > 0) {

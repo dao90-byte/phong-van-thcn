@@ -161,7 +161,7 @@ function adminCreateClient(input) {
   var clientId = generateNextClientId_();
   var token = generateSecureToken_(24);
   var defaultIntro = String((input && input.intro) || '').trim() ||
-    'Chào {name}, đây là bảng chuẩn bị dữ kiện trước buổi làm việc xây dựng thương hiệu cá nhân trong lĩnh vực {field}. Bạn có thể gõ hoặc dùng micro trên bàn phím điện thoại để trả lời tự nhiên nhất.';
+    'Chào anh/chị, đây là bảng chuẩn bị dữ kiện trước buổi làm việc xây dựng thương hiệu cá nhân trong lĩnh vực {field}. Anh/chị có thể gõ hoặc dùng micro trên bàn phím điện thoại để trả lời tự nhiên nhất.';
 
   var record = {
     client_id: clientId,

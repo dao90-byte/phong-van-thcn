@@ -43,8 +43,8 @@
       </div>
     </div>
 
-    <label>Lời chào riêng (để trống sẽ dùng mẫu mặc định có {name}, {field})</label>
-    <textarea id="intro" placeholder="Chào {name}, ..."></textarea>
+    <label>Lời chào riêng (để trống sẽ dùng mẫu mặc định xưng anh/chị)</label>
+    <textarea id="intro" placeholder="Chào anh/chị, ..."></textarea>
 
     <button id="submitBtn" class="btn" onclick="createClient()">Tạo khách &amp; Sinh mã link</button>
     <div id="errBox" class="err"></div>
@@ -56,7 +56,7 @@
     <div id="resLink" class="link-box"></div>
     <button class="btn" onclick="copyLink()">📋 Copy đường link gửi khách</button>
     <div id="noUrlWarn" class="warn" style="display:none;">
-      ⚠️ Bạn chưa cài đặt URL GitHub Pages. Hãy vào menu <b>⚙️ Tư vấn THCN → Cài đặt URL trang khách</b> để lần sau tự ghép link đầy đủ.
+      ⚠️ Anh/chị chưa cài đặt URL GitHub Pages. Hãy vào menu <b>⚙️ Tư vấn THCN → Cài đặt URL trang khách</b> để lần sau tự ghép link đầy đủ.
     </div>
     <button class="btn btn-secondary" onclick="google.script.host.close()">Đóng</button>
   </div>
@@ -105,9 +105,22 @@
     }
 
     function copyLink() {
-      navigator.clipboard.writeText(createdLink).then(function () {
-        alert('Đã copy link vào bộ nhớ tạm!');
-      });
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(createdLink).then(function () {
+          alert('Đã copy link vào bộ nhớ tạm!');
+        }).catch(fallbackCopy);
+      } else {
+        fallbackCopy();
+      }
+    }
+    function fallbackCopy() {
+      var ta = document.createElement('textarea');
+      ta.value = createdLink;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      alert('Đã copy link vào bộ nhớ tạm!');
     }
   </script>
 </body>

@@ -1,11 +1,11 @@
 /**
  * app.js
  * Điều khiển giao diện Trang tự phỏng vấn phía khách hàng (GitHub Pages).
- * - Đọc token từ #k= và ẩn khỏi thanh địa chỉ bằng history.replaceState.
+ * - Đọc token từ #k= (lưu tạm sessionStorage để F5 không mất phiên) và ẩn khỏi thanh địa chỉ.
  * - Phát hiện Zalo/Messenger In-App Browser để cảnh báo sớm.
- * - Chống mất chữ 2 tầng: localStorage mỗi 1s + đồng bộ server (debounce 5s / nút Lưu) + hàng đợi offline.
- * - Nhắc đóng đinh bằng chứng thông minh theo từng câu (tối đa 1 lần/câu, ít báo động giả).
- * - Tích hợp sẵn Chế độ Demo để kiểm thử mượt mọi màn hình trước khi nối Apps Script.
+ * - Lưu lạc quan (optimistic): chuyển câu tức thì (0ms), đẩy server chạy nền theo hàng đợi tuần tự + chống mất chữ localStorage.
+ * - Nút nói thành chữ cho cả ô trả lời chính lẫn ô dẫn chứng bổ sung.
+ * - Điều hướng thông minh từ màn Xem lại: hoàn thành câu chưa trả lời sẽ chuyển thẳng sang câu chưa trả lời kế tiếp hoặc quay về màn Xem lại.
  */
 (function () {
   'use strict';
@@ -20,11 +20,16 @@
     session: null,
     activeStage: 1,
     currentIndex: 0,
+    returnToReviewMode: false,
+    openedUnansweredFromReview: false,
     responses: {}, // code -> { answer, answer_extra, input_mode, flags, matched_vague, updated_at }
     promptedCodes: {}, // Mỗi câu chỉ hiện nhắc đóng đinh bằng chứng tối đa 1 lần
     pendingQueue: [],
     isFlushing: false,
-    isRecording: false,
+    syncChain: Promise.resolve(),
+    inFlightCount: 0,
+    speechSupported: false,
+    activeVoiceTarget: null, // { input, btn, label }
     recognition: null,
     usedVoiceOnCurrent: false,
     usedTypeOnCurrent: false,
@@ -59,7 +64,7 @@
 
     if (parsed.isDemo || (!parsed.token && !apiConfigured && CFG.ENABLE_DEMO)) {
       if (!CFG.ENABLE_DEMO && apiConfigured) {
-        showError('🔒', 'Liên kết không hợp lệ', 'Vui lòng mở đúng đường link phỏng vấn do nhà tư vấn gửi.');
+        showError('🔒', 'Liên kết không hợp lệ', 'Anh/chị vui lòng mở đúng đường link phỏng vấn do chuyên gia gửi.');
         return;
       }
       state.isDemo = true;
@@ -76,12 +81,12 @@
     }
 
     if (!effectiveToken) {
-      showError('🔗', 'Thiếu mã truy cập cá nhân', 'Vui lòng mở đúng đường link riêng có dạng #k=... do nhà tư vấn gửi cho bạn.', CFG.ENABLE_DEMO);
+      showError('🔗', 'Thiếu mã truy cập cá nhân', 'Anh/chị vui lòng mở đúng đường link riêng có dạng #k=... do chuyên gia gửi.', CFG.ENABLE_DEMO);
       return;
     }
 
     if (!apiConfigured) {
-      showError('⚙️', 'Chưa cấu hình API_URL', 'Nhà tư vấn chưa dán đường dẫn Google Apps Script Web App vào file docs/config.js.', CFG.ENABLE_DEMO);
+      showError('⚙️', 'Chưa cấu hình API_URL', 'Chuyên gia chưa dán đường dẫn Google Apps Script Web App vào file docs/config.js.', CFG.ENABLE_DEMO);
       return;
     }
 
@@ -92,9 +97,7 @@
     // Giấu token khỏi thanh địa chỉ sau khi đã đọc vào bộ nhớ
     try {
       window.history.replaceState(null, '', window.location.pathname);
-    } catch (e) {
-      // Bỏ qua trên file://
-    }
+    } catch (e) {}
 
     loadLiveSession();
   }
@@ -105,14 +108,15 @@
       'demoBanner', 'demoStage1Btn', 'demoStage2Btn',
       'appHeader', 'brandTitle', 'syncBadge', 'drawerTrigger', 'progressPillText', 'progressBarFill',
       'viewLoading', 'viewError', 'errorIcon', 'errorTitle', 'errorMessage', 'tryDemoBtn',
-      'viewWelcome', 'welcomeStageBadge', 'welcomeGreeting', 'welcomeIntro',
+      'viewWelcome', 'welcomeGreeting', 'welcomeIntro',
       'welcomeCount', 'welcomeDuration', 'welcomeDeadlineBox', 'welcomeDeadline',
       'consentCheckbox', 'consentText', 'startBtn',
-      'viewQuestion', 'qOutputBadge', 'qCodeBadge', 'lockedNotice', 'qTitle',
+      'viewQuestion', 'qCodeBadge', 'lockedNotice', 'qTitle',
       'qHintBox', 'qHintText', 'qProbesBox', 'qProbesList',
       'answerInput', 'voiceBtn', 'voiceBtnLabel', 'mobileMicTip', 'wordCountLabel', 'voiceStatus',
-      'evidenceBox', 'evidenceReason', 'extraInput', 'skipEvidenceBtn', 'saveEvidenceBtn',
-      'savedExtraWrap', 'savedExtraInput',
+      'evidenceBox', 'evidenceReason', 'extraInput', 'extraVoiceBtn', 'extraVoiceBtnLabel', 'extraMobileMicTip',
+      'skipEvidenceBtn', 'saveEvidenceBtn',
+      'savedExtraWrap', 'savedExtraInput', 'savedExtraToolbar', 'savedExtraVoiceBtn', 'savedExtraVoiceBtnLabel',
       'prevBtn', 'skipBtn', 'saveDraftBtn', 'nextBtn',
       'viewBranch', 'branchABtn', 'branchBBtn',
       'viewReview', 'reviewEyebrow', 'reviewTitle', 'reviewSub', 'reviewList', 'backFromReviewBtn', 'submitStageBtn',
@@ -148,7 +152,16 @@
     el.answerInput.addEventListener('input', onAnswerInput);
     el.savedExtraInput.addEventListener('input', onSavedExtraInput);
 
-    el.voiceBtn.addEventListener('click', toggleVoiceRecording);
+    el.voiceBtn.addEventListener('click', function () {
+      toggleVoiceFor(el.answerInput, el.voiceBtn, el.voiceBtnLabel);
+    });
+    el.extraVoiceBtn.addEventListener('click', function () {
+      toggleVoiceFor(el.extraInput, el.extraVoiceBtn, el.extraVoiceBtnLabel);
+    });
+    el.savedExtraVoiceBtn.addEventListener('click', function () {
+      toggleVoiceFor(el.savedExtraInput, el.savedExtraVoiceBtn, el.savedExtraVoiceBtnLabel);
+    });
+
     el.prevBtn.addEventListener('click', onPrevQuestion);
     el.skipBtn.addEventListener('click', onSkipQuestion);
     el.saveDraftBtn.addEventListener('click', function () { persistCurrentAnswer({ forceServer: true }); });
@@ -160,7 +173,11 @@
     el.branchABtn.addEventListener('click', function () { chooseBranch('A'); });
     el.branchBBtn.addEventListener('click', function () { chooseBranch('B'); });
 
-    el.backFromReviewBtn.addEventListener('click', function () { openQuestionByIndex(state.currentIndex); });
+    el.backFromReviewBtn.addEventListener('click', function () {
+      state.returnToReviewMode = false;
+      state.openedUnansweredFromReview = false;
+      openQuestionByIndex(state.currentIndex);
+    });
     el.submitStageBtn.addEventListener('click', onSubmitStage);
     el.reopenReviewBtn.addEventListener('click', openReviewView);
 
@@ -169,6 +186,7 @@
     el.drawerBackdrop.addEventListener('click', closeDrawer);
     el.drawerToReviewBtn.addEventListener('click', function () {
       closeDrawer();
+      persistCurrentAnswer({ forceServer: false });
       openReviewView();
     });
 
@@ -221,7 +239,7 @@
         }
         var icon = err.code === 'SESSION_CLOSED' ? '✅' : '🔒';
         var title = err.code === 'SESSION_CLOSED' ? 'Phiên phỏng vấn đã đóng' : 'Không tải được phiên phỏng vấn';
-        showError(icon, title, err.message || 'Vui lòng kiểm tra kết nối mạng và tải lại trang.');
+        showError(icon, title, err.message || 'Anh/chị vui lòng kiểm tra kết nối mạng và tải lại trang.');
       });
   }
 
@@ -231,6 +249,8 @@
       sessionData.client.stages_open,
       sessionData.client.stages_locked
     );
+    state.returnToReviewMode = false;
+    state.openedUnansweredFromReview = false;
 
     // Hợp nhất câu trả lời từ server với bản nháp localStorage (ưu tiên bản mới hơn)
     state.responses = {};
@@ -245,7 +265,6 @@
     el.appHeader.classList.remove('hidden');
     updateHeaderProgress();
 
-    // Nếu khách đã đồng ý điều khoản trước đó -> đi thẳng vào câu chưa trả lời đầu tiên của giai đoạn đang mở
     if (sessionData.client.has_consented) {
       var startIdx = findFirstUnansweredIndex(state.activeStage);
       openQuestionByIndex(startIdx);
@@ -267,7 +286,6 @@
         return i;
       }
     }
-    // Nếu tất cả câu trong giai đoạn đã trả lời -> mở câu đầu của giai đoạn đó
     for (var j = 0; j < qs.length; j++) {
       if (qs[j].stage === stage) return j;
     }
@@ -282,9 +300,8 @@
     var minMins = Math.max(10, stageQs.length * 2);
     var maxMins = Math.max(15, stageQs.length * 3);
 
-    el.welcomeStageBadge.textContent = (state.session.stage_titles[state.activeStage] || ('GIAI ĐOẠN ' + state.activeStage)).toUpperCase();
-    el.welcomeGreeting.textContent = 'Xin chào ' + (client.name || 'bạn') + ' 👋';
-    el.welcomeIntro.textContent = client.intro || 'Cảm ơn bạn đã dành thời gian chuẩn bị dữ kiện trước buổi làm việc trực tiếp.';
+    el.welcomeGreeting.textContent = 'Xin chào ' + (client.name || 'anh/chị') + ' 👋';
+    el.welcomeIntro.textContent = client.intro || 'Cảm ơn anh/chị đã dành thời gian chuẩn bị dữ kiện trước buổi làm việc trực tiếp.';
     el.welcomeCount.textContent = stageQs.length + ' câu';
     el.welcomeDuration.textContent = minMins + '–' + maxMins + ' phút';
     if (client.deadline) {
@@ -294,7 +311,7 @@
       el.welcomeDeadline.textContent = 'Trước buổi gặp 3 ngày';
     }
     el.consentText.textContent = state.session.config.consent_text ||
-      'Tôi đồng ý cung cấp thông tin này cho quá trình tư vấn thương hiệu cá nhân và cho phép phân tích bằng AI ở chế độ không huấn luyện mô hình.';
+      'Tôi đồng ý cung cấp thông tin này cho quá trình tư vấn thương hiệu cá nhân. Dữ liệu chỉ phục vụ cho dự án tư vấn của tôi.';
     el.consentCheckbox.checked = false;
     el.startBtn.disabled = true;
 
@@ -315,7 +332,7 @@
       .catch(function (err) {
         el.startBtn.disabled = false;
         el.startBtn.textContent = 'Bắt đầu trả lời →';
-        alert(err.message || 'Không thể lưu xác nhận, vui lòng thử lại.');
+        alert(err.message || 'Không thể lưu xác nhận, anh/chị vui lòng thử lại.');
       });
   }
 
@@ -328,13 +345,14 @@
 
   function openQuestionByIndex(index) {
     stopVoiceIfRunning();
+    el.voiceStatus.classList.add('hidden');
     var qs = state.session.questions;
     if (!qs.length) {
       if (state.session.needs_branch_choice) {
         showOnly('viewBranch');
         return;
       }
-      showError('📋', 'Chưa có câu hỏi đang mở', 'Nhà tư vấn chưa mở câu hỏi tự điền cho giai đoạn này.');
+      showError('📋', 'Chưa có câu hỏi đang mở', 'Chuyên gia chưa mở câu hỏi tự điền cho phiên này.');
       return;
     }
 
@@ -346,7 +364,6 @@
     state.usedVoiceOnCurrent = resp.input_mode === 'noi' || resp.input_mode === 'hon_hop';
     state.usedTypeOnCurrent = resp.input_mode === 'go' || resp.input_mode === 'hon_hop';
 
-    el.qOutputBadge.textContent = 'GĐ ' + q.stage + ' · ' + (q.output || 'Phỏng vấn');
     el.qCodeBadge.textContent = q.code;
     el.qTitle.textContent = q.question_self;
 
@@ -374,6 +391,7 @@
     el.evidenceBox.classList.add('hidden');
     if (resp.answer_extra) {
       el.savedExtraWrap.classList.remove('hidden');
+      el.savedExtraToolbar.classList.toggle('hidden', Boolean(q.locked) || !state.speechSupported);
     } else {
       el.savedExtraWrap.classList.add('hidden');
     }
@@ -384,22 +402,50 @@
       el.saveDraftBtn.classList.add('hidden');
       el.voiceBtn.classList.add('hidden');
       el.mobileMicTip.classList.add('hidden');
+      el.prevBtn.textContent = state.returnToReviewMode ? '← Về trang xem lại' : '← Câu trước';
+      el.prevBtn.disabled = !state.returnToReviewMode && safeIndex === 0;
       el.nextBtn.textContent = isLastQuestionInView() ? 'Tới câu hiện tại →' : 'Xem câu tiếp →';
     } else {
       el.lockedNotice.classList.add('hidden');
       el.skipBtn.classList.remove('hidden');
       el.saveDraftBtn.classList.remove('hidden');
       el.mobileMicTip.classList.remove('hidden');
-      if (state.speechSupported) el.voiceBtn.classList.remove('hidden');
-      var awaitingBranch = state.session.needs_branch_choice && state.activeStage === 2 && !state.session.client.branch;
-      el.nextBtn.textContent = (isLastQuestionInView() && !awaitingBranch) ? 'Lưu & Xem lại →' : 'Lưu & Tiếp →';
+      if (state.speechSupported) {
+        el.voiceBtn.classList.remove('hidden');
+        el.extraVoiceBtn.classList.remove('hidden');
+        el.savedExtraVoiceBtn.classList.remove('hidden');
+      }
+      el.prevBtn.textContent = state.returnToReviewMode ? '← Về trang xem lại' : '← Câu trước';
+      el.prevBtn.disabled = !state.returnToReviewMode && safeIndex === 0;
+      el.nextBtn.textContent = getNextButtonLabel();
     }
 
-    el.prevBtn.disabled = (safeIndex === 0);
     updateWordCountDisplay();
     updateHeaderProgress();
     showOnly('viewQuestion');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function getNextButtonLabel() {
+    var target = computeNextTarget();
+    if (state.returnToReviewMode) {
+      return target.type === 'question' ? 'Lưu & Tới câu chưa làm →' : 'Lưu & Về trang xem lại ✓';
+    }
+    if (target.type === 'review') return 'Lưu & Xem lại →';
+    return 'Lưu & Tiếp →';
+  }
+
+  function computeNextTarget() {
+    return Logic.findNextNavigationTarget({
+      questions: state.session ? state.session.questions : [],
+      responses: state.responses,
+      currentIndex: state.currentIndex,
+      activeStage: state.activeStage,
+      returnToReviewMode: state.returnToReviewMode,
+      openedUnansweredFromReview: state.openedUnansweredFromReview,
+      needsBranchChoice: Boolean(state.session && state.session.needs_branch_choice),
+      hasBranch: Boolean(state.session && state.session.client && state.session.client.branch)
+    });
   }
 
   function isLastQuestionInView() {
@@ -455,14 +501,12 @@
 
     var evalResult = Logic.evaluateEvidence(q, answer, state.session.config.vague_words);
     var flags = evalResult.flags.slice();
-    // Giữ cờ bo_qua_nhac nếu đã bấm bỏ qua trước đó
     if (existing.flags && existing.flags.indexOf('bo_qua_nhac') !== -1 && flags.indexOf('bo_qua_nhac') === -1) {
       flags.push('bo_qua_nhac');
     }
     if (extraOverrides && extraOverrides.addFlag && flags.indexOf(extraOverrides.addFlag) === -1) {
       flags.push(extraOverrides.addFlag);
     }
-    // Nếu khách đã nhập chữ thì gỡ cờ lam_sau
     if (answer) {
       flags = flags.filter(function (f) { return f !== 'lam_sau'; });
     }
@@ -484,24 +528,29 @@
     return record;
   }
 
+  /**
+   * Lưu lạc quan (Optimistic Save):
+   * - Ghi ngay vào state + localStorage (0ms) để UI chuyển trang không bị trễ.
+   * - Đẩy tác vụ gửi server vào chuỗi tuần tự chạy nền (`state.syncChain`).
+   */
   function persistCurrentAnswer(opts) {
+    var options = opts || {};
     var q = getCurrentQuestion();
     if (!q || q.locked) return Promise.resolve();
 
     clearTimeout(state.localDraftTimer);
     clearTimeout(state.serverDebounceTimer);
 
-    var record = captureCurrentIntoState(opts && opts.extraOverrides);
+    var record = captureCurrentIntoState(options.extraOverrides);
     saveDraftToLocalStorage(q.code);
     updateHeaderProgress();
 
-    // Không đẩy lên server nếu câu hoàn toàn trống và chưa từng có nội dung (trừ khi đánh dấu làm sau)
     if (!record.answer && !record.answer_extra && record.flags.indexOf('lam_sau') === -1) {
       return Promise.resolve();
     }
 
     var h = hashResponse(record);
-    if (!opts.forceServer && state.lastSavedHashByCode[q.code] === h) {
+    if (!options.forceServer && state.lastSavedHashByCode[q.code] === h) {
       return Promise.resolve();
     }
 
@@ -510,35 +559,53 @@
       return Promise.resolve();
     }
 
+    // Chạy nền tuần tự để không chặn chuyển màn hình và giảm xung đột LockService
+    var snapshot = Object.assign({}, record);
+    state.inFlightCount++;
     setSyncStatus('saving', 'Đang lưu...');
-    return callApi('saveAnswer', record)
-      .then(function (res) {
-        state.lastSavedHashByCode[q.code] = h;
-        removeDraftFromLocalStorage(q.code);
-        state.pendingQueue = Logic.dequeuePendingSave(state.pendingQueue, record.code, record.round);
-        saveQueueToLocalStorage();
-        setSyncStatus('saved', 'Đã lưu ✓');
-        return res;
-      })
-      .catch(function () {
-        queueOfflineSave(record);
-      });
+
+    state.syncChain = state.syncChain.then(function () {
+      return callApi('saveAnswer', snapshot)
+        .then(function () {
+          state.lastSavedHashByCode[snapshot.code] = h;
+          // Chỉ xóa nháp local nếu không có bản mới hơn vừa gõ sau đó
+          var latest = state.responses[snapshot.code];
+          if (!latest || hashResponse(latest) === h) {
+            removeDraftFromLocalStorage(snapshot.code);
+          }
+          state.pendingQueue = Logic.dequeuePendingSave(state.pendingQueue, snapshot.code, snapshot.round);
+          saveQueueToLocalStorage();
+        })
+        .catch(function () {
+          queueOfflineSave(snapshot);
+        })
+        .finally(function () {
+          state.inFlightCount = Math.max(0, state.inFlightCount - 1);
+          if (state.inFlightCount === 0 && state.pendingQueue.length === 0) {
+            setSyncStatus('saved', 'Đã lưu ✓');
+          }
+        });
+    });
+
+    return state.syncChain;
   }
 
   // ==================== NAVIGATION & EVIDENCE PINNING ====================
 
   function onPrevQuestion() {
-    persistCurrentAnswer({ forceServer: false }).finally(function () {
-      openQuestionByIndex(state.currentIndex - 1);
-    });
+    persistCurrentAnswer({ forceServer: false });
+    if (state.returnToReviewMode) {
+      openReviewView();
+      return;
+    }
+    openQuestionByIndex(state.currentIndex - 1);
   }
 
   function onSkipQuestion() {
     var q = getCurrentQuestion();
     if (!q || q.locked) return;
-    persistCurrentAnswer({ forceServer: false, extraOverrides: { addFlag: 'lam_sau' } }).finally(function () {
-      goForwardAfterCurrent();
-    });
+    persistCurrentAnswer({ forceServer: false, extraOverrides: { addFlag: 'lam_sau' } });
+    goForwardAfterCurrent();
   }
 
   function onNextQuestion() {
@@ -564,6 +631,8 @@
         el.evidenceReason.textContent = check.reason;
         el.extraInput.value = '';
         el.evidenceBox.classList.remove('hidden');
+        // Lưu nền luôn câu trả lời chính trong lúc anh/chị đọc nhắc bằng chứng
+        persistCurrentAnswer({ forceServer: false });
         el.extraInput.focus();
         el.evidenceBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         return;
@@ -578,48 +647,48 @@
     }
     var skippedOpenEvidence = evidenceOpen && !extraFromBox;
     el.evidenceBox.classList.add('hidden');
+
+    // Lưu chạy nền (0ms lag) và chuyển ngay sang đích tiếp theo
     persistCurrentAnswer({
       forceServer: true,
       extraOverrides: skippedOpenEvidence ? { addFlag: 'bo_qua_nhac' } : null
-    }).finally(function () {
-      goForwardAfterCurrent();
     });
+    goForwardAfterCurrent();
   }
 
   function onSkipEvidence() {
+    stopVoiceIfRunning();
     el.evidenceBox.classList.add('hidden');
-    persistCurrentAnswer({ forceServer: true, extraOverrides: { addFlag: 'bo_qua_nhac' } }).finally(function () {
-      goForwardAfterCurrent();
-    });
+    // Chuyển trang tức thì (không chờ mạng), đồng bộ cờ bo_qua_nhac chạy nền
+    persistCurrentAnswer({ forceServer: true, extraOverrides: { addFlag: 'bo_qua_nhac' } });
+    goForwardAfterCurrent();
   }
 
   function onSaveEvidence() {
+    stopVoiceIfRunning();
     var extra = el.extraInput.value.trim();
     el.savedExtraInput.value = extra;
     el.evidenceBox.classList.add('hidden');
     if (extra) el.savedExtraWrap.classList.remove('hidden');
+    // Chuyển trang tức thì (0ms), đồng bộ câu trả lời + bổ sung chạy nền
     persistCurrentAnswer({
       forceServer: true,
       extraOverrides: extra ? null : { addFlag: 'bo_qua_nhac' }
-    }).finally(function () {
-      goForwardAfterCurrent();
     });
+    goForwardAfterCurrent();
   }
 
   function goForwardAfterCurrent() {
-    var qs = state.session.questions;
-    if (state.currentIndex < qs.length - 1) {
-      openQuestionByIndex(state.currentIndex + 1);
+    var target = computeNextTarget();
+    if (target.type === 'question') {
+      openQuestionByIndex(target.index);
       return;
     }
-
-    // Nếu đang ở cuối câu chung GĐ2 mà khách chưa chọn nhánh A/B -> hiện màn chọn nhánh
-    if (state.session.needs_branch_choice && state.activeStage === 2 && !state.session.client.branch) {
+    if (target.type === 'branch') {
       showOnly('viewBranch');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-
     openReviewView();
   }
 
@@ -636,19 +705,19 @@
 
         var prevCount = state.session.questions.length;
         state.session = updatedSession;
-        // Giữ lại responses cục bộ đang có
+        state.returnToReviewMode = false;
+        state.openedUnansweredFromReview = false;
         Object.keys(updatedSession.responses || {}).forEach(function (code) {
           if (!state.responses[code]) state.responses[code] = updatedSession.responses[code];
         });
         updateHeaderProgress();
 
-        // Nhảy thẳng sang câu nhánh đầu tiên vừa được mở (ví dụ 2.3.1A hoặc 2.3.2B)
         openQuestionByIndex(Math.min(prevCount, state.session.questions.length - 1));
       })
       .catch(function (err) {
         el.branchABtn.disabled = false;
         el.branchBBtn.disabled = false;
-        alert(err.message || 'Không thể lưu nhánh, vui lòng thử lại.');
+        alert(err.message || 'Không thể lưu nhánh, anh/chị vui lòng thử lại.');
       });
   }
 
@@ -656,21 +725,24 @@
 
   function openReviewView() {
     stopVoiceIfRunning();
+    state.returnToReviewMode = false;
+    state.openedUnansweredFromReview = false;
+
     var stage = state.activeStage;
     var stageQs = state.session.questions.filter(function (q) { return q.stage === stage; });
     var progress = Logic.computeStageProgress(state.session.questions, state.responses, stage);
     var isStageLocked = state.session.client.stages_locked.indexOf(stage) !== -1;
 
-    el.reviewEyebrow.textContent = 'XEM LẠI · GIAI ĐOẠN ' + stage;
-    el.reviewTitle.textContent = 'Bạn đã trả lời ' + progress.answered + '/' + progress.total + ' câu';
+    el.reviewEyebrow.textContent = 'XEM LẠI TRƯỚC KHI GỬI';
+    el.reviewTitle.textContent = 'Anh/chị đã trả lời ' + progress.answered + '/' + progress.total + ' câu';
     el.reviewSub.textContent = progress.remaining > 0
-      ? 'Còn ' + progress.remaining + ' câu chưa trả lời. Bạn có thể bấm trực tiếp vào bất kỳ câu nào bên dưới để bổ sung, hoặc gửi luôn phần đã chuẩn bị.'
-      : 'Tuyệt vời! Bạn đã hoàn thành toàn bộ các câu chuẩn bị. Hãy rà nhanh một lượt rồi bấm Gửi cho chuyên gia.';
+      ? 'Còn ' + progress.remaining + ' câu chưa trả lời. Anh/chị có thể bấm trực tiếp vào bất kỳ câu nào bên dưới để bổ sung, hoặc gửi luôn phần đã chuẩn bị.'
+      : 'Tuyệt vời! Anh/chị đã hoàn thành toàn bộ các câu chuẩn bị. Hãy rà nhanh một lượt rồi bấm Gửi cho chuyên gia.';
 
     el.reviewList.innerHTML = stageQs.map(function (q) {
       var globalIdx = state.session.questions.indexOf(q);
       var r = state.responses[q.code];
-      var hasAns = r && String(r.answer || '').trim();
+      var hasAns = Boolean(r && String(r.answer || '').trim());
       var badge = hasAns
         ? '<span class="badge" style="background:var(--success-bg);color:var(--success);">Đã trả lời (' + Logic.countWords(r.answer) + ' từ)</span>'
         : '<span class="badge" style="background:var(--amber-bg);color:var(--amber);">Chưa trả lời</span>';
@@ -678,7 +750,7 @@
         ? '<p class="review-item-a">' + escapeHtml(r.answer) + (r.answer_extra ? '\n[Bổ sung]: ' + escapeHtml(r.answer_extra) : '') + '</p>'
         : '<p class="review-item-a review-empty">Bấm vào đây để trả lời câu này...</p>';
 
-      return '<div class="review-item" data-index="' + globalIdx + '">' +
+      return '<div class="review-item" data-index="' + globalIdx + '" data-unanswered="' + (hasAns ? '0' : '1') + '">' +
         '<div class="review-item-head"><span class="code-pill">' + escapeHtml(q.code) + '</span>' + badge + '</div>' +
         '<p class="review-item-q">' + escapeHtml(q.question_self) + '</p>' +
         preview +
@@ -687,12 +759,14 @@
 
     Array.prototype.forEach.call(el.reviewList.querySelectorAll('.review-item'), function (node) {
       node.addEventListener('click', function () {
+        state.returnToReviewMode = true;
+        state.openedUnansweredFromReview = node.getAttribute('data-unanswered') === '1';
         openQuestionByIndex(parseInt(node.getAttribute('data-index'), 10));
       });
     });
 
     el.submitStageBtn.disabled = isStageLocked;
-    el.submitStageBtn.textContent = isStageLocked ? 'Giai đoạn này đã được khóa' : 'Hoàn tất & Gửi cho chuyên gia ✓';
+    el.submitStageBtn.textContent = isStageLocked ? 'Phần này đã được khóa' : 'Hoàn tất & Gửi cho chuyên gia ✓';
 
     showOnly('viewReview');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -702,16 +776,17 @@
     el.submitStageBtn.disabled = true;
     el.submitStageBtn.textContent = 'Đang gửi...';
 
-    // Đẩy hết hàng đợi offline trước khi nộp
-    flushPendingQueue()
+    // Đợi toàn bộ lưu chạy nền + hàng đợi offline hoàn tất trước khi nộp bài
+    state.syncChain
+      .then(function () { return flushPendingQueue(); })
       .then(function () {
         return callApi('submitStage', { stage: state.activeStage, round: state.session.round });
       })
       .then(function (res) {
         el.submitStageBtn.disabled = false;
         el.submitStageBtn.textContent = 'Hoàn tất & Gửi cho chuyên gia ✓';
-        el.doneMessage.textContent = 'Cảm ơn ' + (state.session.client.name || 'bạn') + '! Phần chuẩn bị Giai đoạn ' + state.activeStage +
-          ' đã được gửi tới ' + (CFG.CONSULTANT_NAME || 'nhà tư vấn') + ' để tổng hợp trước buổi gặp trực tiếp.';
+        el.doneMessage.textContent = 'Cảm ơn ' + (state.session.client.name || 'anh/chị') + '! Phần chuẩn bị đã được gửi tới ' +
+          (CFG.CONSULTANT_NAME || 'chuyên gia tư vấn') + ' để tổng hợp trước buổi gặp trực tiếp.';
         el.doneTimestamp.textContent = 'Thời điểm ghi nhận: ' + formatTimeVi(res.submitted_at);
         showOnly('viewDone');
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -719,7 +794,7 @@
       .catch(function (err) {
         el.submitStageBtn.disabled = false;
         el.submitStageBtn.textContent = 'Hoàn tất & Gửi cho chuyên gia ✓';
-        alert(err.message || 'Chưa gửi được xác nhận nộp bài (có thể do mất mạng). Câu trả lời của bạn vẫn an toàn, hãy thử bấm lại.');
+        alert(err.message || 'Chưa gửi được xác nhận nộp bài (có thể do mất mạng). Câu trả lời của anh/chị vẫn an toàn, hãy thử bấm lại.');
       });
   }
 
@@ -730,16 +805,16 @@
     var prog = Logic.computeStageProgress(state.session.questions, state.responses, state.activeStage);
     var stageQs = state.session.questions.filter(function (q) { return q.stage === state.activeStage; });
     var curQ = getCurrentQuestion();
-    var posInStage = curQ && curQ.stage === state.activeStage ? (stageQs.indexOf(curQ) + 1) : prog.answered;
+    var posInStage = curQ && curQ.stage === state.activeStage ? (stageQs.indexOf(curQ) + 1) : Math.max(1, prog.answered);
 
-    el.progressPillText.textContent = 'Câu ' + Math.max(1, posInStage) + '/' + Math.max(1, prog.total) + ' · GĐ ' + state.activeStage;
+    el.progressPillText.textContent = 'Câu ' + Math.max(1, posInStage) + '/' + Math.max(1, prog.total);
     el.progressBarFill.style.width = prog.percent + '%';
   }
 
   function openDrawer() {
     if (!state.session) return;
     var prog = Logic.computeStageProgress(state.session.questions, state.responses, state.activeStage);
-    el.drawerSummary.textContent = 'GĐ ' + state.activeStage + ': đã làm ' + prog.answered + '/' + prog.total + ' câu';
+    el.drawerSummary.textContent = 'Đã làm ' + prog.answered + '/' + prog.total + ' câu';
 
     var grouped = {};
     var stages = [];
@@ -753,7 +828,9 @@
 
     el.drawerBody.innerHTML = stages.map(function (s) {
       var locked = state.session.client.stages_locked.indexOf(s) !== -1;
-      var header = '<div class="drawer-stage-title">Giai đoạn ' + s + (locked ? ' · 🔒 Chỉ xem' : ' · Đang làm') + '</div>';
+      var header = stages.length > 1
+        ? '<div class="drawer-stage-title">Phần ' + s + (locked ? ' · 🔒 Chỉ xem' : '') + '</div>'
+        : '';
       var items = grouped[s].map(function (entry) {
         var r = state.responses[entry.q.code];
         var hasAns = r && String(r.answer || '').trim();
@@ -775,9 +852,10 @@
       btn.addEventListener('click', function () {
         var idx = parseInt(btn.getAttribute('data-idx'), 10);
         closeDrawer();
-        persistCurrentAnswer({ forceServer: false }).finally(function () {
-          openQuestionByIndex(idx);
-        });
+        state.returnToReviewMode = false;
+        state.openedUnansweredFromReview = false;
+        persistCurrentAnswer({ forceServer: false });
+        openQuestionByIndex(idx);
       });
     });
 
@@ -790,29 +868,41 @@
     el.questionDrawer.classList.add('hidden');
   }
 
-  // ==================== VOICE (WEB SPEECH API + MOBILE FALLBACK) ====================
+  // ==================== VOICE (WEB SPEECH API CHO CẢ Ô CHÍNH & Ô DẪN CHỨNG) ====================
 
   function setupVoiceAvailability() {
     var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     var inApp = Logic.detectInAppBrowser(navigator.userAgent).isInApp;
     var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-    // Trên Zalo WebView hoặc iOS thường dễ cắt ngắt -> ưu tiên hướng dẫn micro bàn phím điện thoại
     state.speechSupported = Boolean(SpeechRecognition) && !inApp && !isIOS;
     if (state.speechSupported) {
       el.voiceBtn.classList.remove('hidden');
+      el.extraVoiceBtn.classList.remove('hidden');
+      el.savedExtraVoiceBtn.classList.remove('hidden');
       el.mobileMicTip.textContent = 'Hoặc dùng nút micro trên bàn phím điện thoại';
+      el.extraMobileMicTip.textContent = 'Hoặc dùng micro trên bàn phím điện thoại';
     } else {
       el.voiceBtn.classList.add('hidden');
+      el.extraVoiceBtn.classList.add('hidden');
+      el.savedExtraVoiceBtn.classList.add('hidden');
       el.mobileMicTip.textContent = '💡 Mẹo: bấm nút 🎤 micro trên bàn phím điện thoại để nói thành chữ';
+      el.extraMobileMicTip.textContent = '💡 Có thể dùng nút 🎤 micro trên bàn phím điện thoại để đọc nhanh';
     }
   }
 
-  function toggleVoiceRecording() {
+  function toggleVoiceFor(targetInput, targetBtn, targetLabel) {
     if (!state.speechSupported) return;
-    if (state.isRecording) {
+
+    // Nếu đang ghi ở chính nút này -> dừng lại
+    if (state.activeVoiceTarget && state.activeVoiceTarget.btn === targetBtn) {
       stopVoiceIfRunning();
       return;
+    }
+
+    // Nếu đang ghi ở ô khác -> dừng ô kia trước rồi bắt đầu ô mới
+    if (state.activeVoiceTarget) {
+      stopVoiceIfRunning();
     }
 
     var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -821,16 +911,15 @@
     rec.continuous = true;
     rec.interimResults = true;
 
-    var baseText = el.answerInput.value.trim();
+    var baseText = targetInput.value.trim();
     var finalChunk = '';
 
     rec.onstart = function () {
-      state.isRecording = true;
+      state.activeVoiceTarget = { input: targetInput, btn: targetBtn, label: targetLabel };
       state.usedVoiceOnCurrent = true;
-      el.voiceBtn.classList.add('recording');
-      el.voiceBtnLabel.textContent = 'Dừng ghi giọng nói';
-      el.voiceStatus.textContent = 'Đang nghe (tiếng Việt)... Hãy nói tự nhiên, bạn có thể sửa lại chữ sau.';
-      el.voiceStatus.classList.remove('hidden');
+      targetBtn.classList.add('recording');
+      targetLabel.textContent = 'Dừng ghi giọng nói';
+      el.voiceStatus.classList.add('hidden');
     };
 
     rec.onresult = function (event) {
@@ -841,20 +930,21 @@
         else interim += t;
       }
       var sep = baseText ? ' ' : '';
-      el.answerInput.value = (baseText + sep + finalChunk + interim).trim();
+      targetInput.value = (baseText + sep + finalChunk + interim).trim();
       updateWordCountDisplay();
     };
 
     rec.onerror = function (ev) {
-      el.voiceStatus.textContent = 'Không thu được giọng nói (' + ev.error + '). Bạn hãy gõ hoặc dùng nút micro trên bàn phím điện thoại.';
+      el.voiceStatus.textContent = 'Không thu được giọng nói (' + ev.error + '). Anh/chị hãy gõ hoặc dùng nút micro trên bàn phím điện thoại.';
+      el.voiceStatus.classList.remove('hidden');
       stopVoiceIfRunning();
     };
 
     rec.onend = function () {
-      state.isRecording = false;
-      el.voiceBtn.classList.remove('recording');
-      el.voiceBtnLabel.textContent = '🎤 Nói thành chữ';
-      scheduleDualSave();
+      resetVoiceButtonState();
+      if (targetInput === el.answerInput || targetInput === el.savedExtraInput) {
+        scheduleDualSave();
+      }
     };
 
     state.recognition = rec;
@@ -865,13 +955,19 @@
     }
   }
 
+  function resetVoiceButtonState() {
+    if (state.activeVoiceTarget) {
+      state.activeVoiceTarget.btn.classList.remove('recording');
+      state.activeVoiceTarget.label.textContent = '🎤 Nói thành chữ';
+      state.activeVoiceTarget = null;
+    }
+  }
+
   function stopVoiceIfRunning() {
-    if (state.recognition && state.isRecording) {
+    if (state.recognition && state.activeVoiceTarget) {
       try { state.recognition.stop(); } catch (e) {}
     }
-    state.isRecording = false;
-    el.voiceBtn.classList.remove('recording');
-    el.voiceBtnLabel.textContent = '🎤 Nói thành chữ';
+    resetVoiceButtonState();
   }
 
   // ==================== LOCAL STORAGE & OFFLINE QUEUE ====================
@@ -1003,40 +1099,40 @@
     branch: '',
     consented: false,
     responses: {
-      '1.1.5': { code: '1.1.5', stage: 1, answer: 'Khoảng 4 giờ/tuần vào sáng thứ 7. Hiện có 1 bạn trợ lý thiết kế hình ảnh bán thời gian.', answer_extra: '', input_mode: 'go', flags: [], matched_vague: [], updated_at: '2026-11-23T08:00:00.000Z' },
+      '1.1.5': { code: '1.1.5', stage: 1, answer: 'Khoảng 4 giờ/tuần vào sáng thứ 7. Hiện có 1 trợ lý thiết kế hình ảnh bán thời gian.', answer_extra: '', input_mode: 'go', flags: [], matched_vague: [], updated_at: '2026-11-23T08:00:00.000Z' },
       '1.4.1': { code: '1.4.1', stage: 1, answer: 'https://facebook.com/dr.minhanh\nhttps://linkedin.com/in/minhanh-dental', answer_extra: '', input_mode: 'go', flags: [], matched_vague: [], updated_at: '2026-11-23T08:05:00.000Z' }
     }
   };
 
   function buildDemoSessionData(stageMode) {
     var s1Questions = [
-      { code: '1.1.2', stage: 1, group: '1.1', order: 2, mode: 'hybrid', branch: '', output: 'Bản đồ hiện trạng & rào cản', question_self: 'Nếu trong 12 tháng tới bạn vẫn giữ nguyên cách làm hiện tại (chưa xây thương hiệu cá nhân trong lĩnh vực Nha khoa thẩm mỹ), công việc hoặc doanh nghiệp của bạn có thể bỏ lỡ những cơ hội cụ thể nào?', self_hint: 'Hãy ước lượng cụ thể bằng con số: khoảng doanh thu bị bỏ lỡ, số lượng khách hàng mới/tháng hoặc cơ hội hợp tác.', probes: [], min_words: 20, check_vague: true, locked: stageMode === 2 },
-      { code: '1.1.3', stage: 1, group: '1.1', order: 3, mode: 'hybrid', branch: '', output: 'Bản đồ hiện trạng & rào cản', question_self: 'Sau 6–12 tháng tới, kết quả cụ thể nào sẽ khiến Minh Anh khẳng định việc đầu tư xây dựng thương hiệu cá nhân lần này là thành công?', self_hint: 'Nêu con số mục tiêu rõ ràng. Buổi gặp trực tiếp ta sẽ chốt 1 ưu tiên số 1.', probes: [], min_words: 15, check_vague: true, locked: stageMode === 2 },
-      { code: '1.1.4', stage: 1, group: '1.1', order: 4, mode: 'hybrid', branch: '', output: 'Bản đồ hiện trạng & rào cản', question_self: 'Có ranh giới, chủ đề đời tư hoặc kiểu xuất hiện nào bạn tuyệt đối KHÔNG muốn đánh đổi để đổi lấy tương tác hay sự nổi tiếng?', self_hint: 'Ví dụ: không lộ mặt gia đình, không tranh luận drama ngành, bảo mật tên khách hàng.', probes: [], min_words: 15, check_vague: false, locked: stageMode === 2 },
-      { code: '1.1.5', stage: 1, group: '1.1', order: 5, mode: 'self', branch: '', output: 'Bản đồ hiện trạng & rào cản', question_self: 'Mỗi tuần (tính cả tuần bận nhất 3 tháng qua), bạn có thể dành chắc chắn bao nhiêu giờ cho việc chia sẻ chất liệu/ghi hình, và hiện có ai hỗ trợ?', self_hint: 'Trả lời sát lịch thực tế, không cần viết dài.', probes: [], min_words: 8, check_vague: false, locked: stageMode === 2 },
-      { code: '1.2.2', stage: 1, group: '1.2', order: 7, mode: 'self', branch: '', output: 'Hồ sơ năng lực', question_self: 'Khi người quen, khách hàng hoặc đồng nghiệp gặp rắc rối, họ hay tìm đến Minh Anh để nhờ gỡ rối việc gì nhất? Hãy trích dẫn 1–2 tin nhắn gần nhất.', self_hint: 'Copy-paste nguyên văn 1–2 tin nhắn Zalo gần đây (hoặc tóm tắt 1 dòng rồi gửi ảnh chụp qua Zalo).', probes: [], min_words: 15, check_vague: false, locked: stageMode === 2 },
-      { code: '1.3.1', stage: 1, group: '1.3', order: 10, mode: 'self', branch: '', output: 'Kho bằng chứng thô', question_self: 'Liệt kê 3–5 kết quả đo lường được rõ nhất mà bạn đã tạo ra cho bản thân, tổ chức hoặc khách hàng trong lĩnh vực Nha khoa thẩm mỹ.', self_hint: 'Nêu rõ số Trước -> Sau (%, doanh thu, tỷ lệ hài lòng...).', probes: [], min_words: 15, check_vague: true, locked: stageMode === 2 },
-      { code: '1.3.2', stage: 1, group: '1.3', order: 11, mode: 'hybrid', branch: '', output: 'Kho bằng chứng thô', question_self: 'Hãy tóm tắt 2–3 ca khách hàng tiêu biểu nhất theo mạch: 1) Bế tắc ban đầu -> 2) Giải pháp của bạn -> 3) Thay đổi sau đó.', self_hint: 'Chỉ cần gạch đầu dòng rõ tình huống thật (có thể ẩn tên khách).', probes: [], min_words: 40, check_vague: true, locked: stageMode === 2 },
-      { code: '1.3.3', stage: 1, group: '1.3', order: 12, mode: 'self', branch: '', output: 'Kho bằng chứng thô', question_self: 'Kiểm kê các bằng chứng xã hội bạn đang có (bài báo, giải thưởng, diễn giả, nhận xét công khai, người giới thiệu uy tín).', self_hint: 'Gạch đầu dòng kèm link nếu có.', probes: [], min_words: 10, check_vague: false, locked: stageMode === 2 },
-      { code: '1.4.1', stage: 1, group: '1.4', order: 13, mode: 'self', branch: '', output: 'Bản đồ hiện trạng & rào cản', question_self: 'Dán đường link các trang cá nhân / kênh công việc bạn đang dùng (Facebook, LinkedIn, TikTok, Website...) để chuyên gia chạy bài Test 5 giây.', self_hint: 'Mỗi link 1 dòng (không cần giải thích dài).', probes: [], min_words: 0, check_vague: false, locked: stageMode === 2 }
+      { code: '1.1.2', stage: 1, group: '1.1', order: 2, mode: 'hybrid', branch: '', output: 'Bản đồ hiện trạng & rào cản', question_self: 'Nếu trong 12 tháng tới anh/chị vẫn giữ nguyên cách làm hiện tại (chưa xây thương hiệu cá nhân trong lĩnh vực Nha khoa thẩm mỹ), công việc hoặc doanh nghiệp của anh/chị có thể bỏ lỡ những cơ hội cụ thể nào?', self_hint: 'Anh/chị hãy ước lượng cụ thể bằng con số: khoảng doanh thu bị bỏ lỡ, số lượng khách hàng mới/tháng hoặc cơ hội hợp tác.', probes: [], min_words: 20, check_vague: true, locked: stageMode === 2 },
+      { code: '1.1.3', stage: 1, group: '1.1', order: 3, mode: 'hybrid', branch: '', output: 'Bản đồ hiện trạng & rào cản', question_self: 'Sau 6–12 tháng tới, kết quả cụ thể nào sẽ khiến anh/chị khẳng định việc đầu tư xây dựng thương hiệu cá nhân lần này là thành công?', self_hint: 'Nêu con số mục tiêu rõ ràng. Buổi gặp trực tiếp ta sẽ chốt 1 ưu tiên số 1.', probes: [], min_words: 15, check_vague: true, locked: stageMode === 2 },
+      { code: '1.1.4', stage: 1, group: '1.1', order: 4, mode: 'hybrid', branch: '', output: 'Bản đồ hiện trạng & rào cản', question_self: 'Có ranh giới, chủ đề đời tư hoặc kiểu xuất hiện nào anh/chị tuyệt đối KHÔNG muốn đánh đổi để đổi lấy tương tác hay sự nổi tiếng?', self_hint: 'Ví dụ: không lộ mặt gia đình, không tranh luận drama ngành, bảo mật tên khách hàng.', probes: [], min_words: 15, check_vague: false, locked: stageMode === 2 },
+      { code: '1.1.5', stage: 1, group: '1.1', order: 5, mode: 'self', branch: '', output: 'Bản đồ hiện trạng & rào cản', question_self: 'Mỗi tuần (tính cả tuần bận nhất 3 tháng qua), anh/chị có thể dành chắc chắn bao nhiêu giờ cho việc chia sẻ chất liệu/ghi hình, và hiện có ai hỗ trợ?', self_hint: 'Trả lời sát lịch thực tế, không cần viết dài.', probes: [], min_words: 8, check_vague: false, locked: stageMode === 2 },
+      { code: '1.2.2', stage: 1, group: '1.2', order: 7, mode: 'self', branch: '', output: 'Hồ sơ năng lực', question_self: 'Khi người quen, khách hàng hoặc đồng nghiệp gặp rắc rối, họ hay tìm đến anh/chị để nhờ gỡ rối việc gì nhất? Anh/chị hãy trích dẫn 1–2 tin nhắn gần nhất.', self_hint: 'Mẹo hay nhất: mở Zalo/Messenger, copy-paste nguyên văn 1–2 câu hỏi gần đây người khác nhắn nhờ anh/chị.', probes: [], min_words: 15, check_vague: false, locked: stageMode === 2 },
+      { code: '1.3.1', stage: 1, group: '1.3', order: 10, mode: 'self', branch: '', output: 'Kho bằng chứng thô', question_self: 'Liệt kê 3–5 kết quả đo lường được rõ nhất mà anh/chị đã tạo ra cho bản thân, tổ chức hoặc khách hàng trong lĩnh vực Nha khoa thẩm mỹ.', self_hint: 'Nêu rõ số Trước -> Sau (%, doanh thu, tỷ lệ hài lòng...).', probes: [], min_words: 15, check_vague: true, locked: stageMode === 2 },
+      { code: '1.3.2', stage: 1, group: '1.3', order: 11, mode: 'hybrid', branch: '', output: 'Kho bằng chứng thô', question_self: 'Anh/chị hãy tóm tắt 2–3 ca khách hàng tiêu biểu nhất theo mạch: 1) Bế tắc ban đầu -> 2) Giải pháp của anh/chị -> 3) Thay đổi sau đó.', self_hint: 'Chỉ cần gạch đầu dòng rõ tình huống thật (có thể ẩn tên khách).', probes: [], min_words: 40, check_vague: true, locked: stageMode === 2 },
+      { code: '1.3.3', stage: 1, group: '1.3', order: 12, mode: 'self', branch: '', output: 'Kho bằng chứng thô', question_self: 'Kiểm kê các bằng chứng xã hội anh/chị đang có (bài báo, giải thưởng, diễn giả, nhận xét công khai, người giới thiệu uy tín).', self_hint: 'Gạch đầu dòng kèm link nếu có.', probes: [], min_words: 10, check_vague: false, locked: stageMode === 2 },
+      { code: '1.4.1', stage: 1, group: '1.4', order: 13, mode: 'self', branch: '', output: 'Bản đồ hiện trạng & rào cản', question_self: 'Anh/chị hãy dán đường link các trang cá nhân / kênh công việc đang dùng (Facebook, LinkedIn, TikTok, Website...) để chuyên gia chạy bài Test 5 giây.', self_hint: 'Mỗi link 1 dòng (không cần giải thích dài).', probes: [], min_words: 0, check_vague: false, locked: stageMode === 2 }
     ];
 
     var s2Common = [
-      { code: '2.1.1', stage: 2, group: '2.1', order: 16, mode: 'hybrid', branch: '', output: 'Chân dung khách hàng', question_self: 'Chọn trước 1–2 nhóm khách hàng bạn muốn ưu tiên phục vụ nhất (vừa có nỗi đau cấp bách, vừa sẵn sàng chi trả).', self_hint: 'Mô tả cụ thể vai trò/ngành/quy mô. Các câu 2.1.2 và 2.1.3 sẽ xoay quanh nhóm này.', probes: [], min_words: 15, check_vague: true, locked: false },
-      { code: '2.1.2', stage: 2, group: '2.1', order: 17, mode: 'self', branch: '', output: 'Chân dung khách hàng', question_self: 'Với nhóm khách bạn vừa nêu ở 2.1.1: họ ở hoàn cảnh nào khi đi tìm giải pháp và câu hỏi nghi ngờ đầu tiên họ hay đặt ra là gì?', self_hint: 'Kể trải nghiệm mất tiền oan trước đây của họ hoặc dán câu hỏi khách hay thắc mắc.', probes: [], min_words: 20, check_vague: true, locked: false },
+      { code: '2.1.1', stage: 2, group: '2.1', order: 16, mode: 'hybrid', branch: '', output: 'Chân dung khách hàng', question_self: 'Anh/chị hãy chọn trước 1–2 nhóm khách hàng muốn ưu tiên phục vụ nhất (vừa có nỗi đau cấp bách, vừa sẵn sàng chi trả).', self_hint: 'Mô tả cụ thể vai trò/ngành/quy mô. Các câu 2.1.2 và 2.1.3 sẽ xoay quanh nhóm này.', probes: [], min_words: 15, check_vague: true, locked: false },
+      { code: '2.1.2', stage: 2, group: '2.1', order: 17, mode: 'self', branch: '', output: 'Chân dung khách hàng', question_self: 'Với nhóm khách anh/chị vừa nêu ở 2.1.1: họ ở hoàn cảnh nào khi đi tìm giải pháp và câu hỏi nghi ngờ đầu tiên họ hay đặt ra là gì?', self_hint: 'Kể trải nghiệm mất tiền oan trước đây của họ hoặc dán câu hỏi khách hay thắc mắc.', probes: [], min_words: 20, check_vague: true, locked: false },
       { code: '2.1.3', stage: 2, group: '2.1', order: 18, mode: 'self', branch: '', output: 'Chân dung khách hàng', question_self: 'Nhóm khách ở 2.1.1 thường tìm thông tin ở đâu (tên cụ thể các group Facebook, kênh YouTube, podcast, báo ngành, người ảnh hưởng)?', self_hint: 'Ghi càng cụ thể tên kênh/group càng tốt.', probes: [], min_words: 10, check_vague: false, locked: false },
-      { code: '2.2.1', stage: 2, group: '2.2', order: 19, mode: 'hybrid', branch: '', output: 'Tuyên bố định vị', question_self: 'Liệt kê tên 3 đối thủ nổi bật nhất cùng tệp khách, và nêu điểm khác biệt trong quy trình/cách làm của Minh Anh (không tính giá rẻ).', self_hint: 'Ghi tên 3 đối thủ + 1–2 điểm khác biệt cốt lõi.', probes: [], min_words: 25, check_vague: true, locked: false },
-      { code: '2.2.2', stage: 2, group: '2.2', order: 20, mode: 'self', branch: '', output: 'Tuyên bố định vị', question_self: 'Trong ngành Nha khoa thẩm mỹ, kiểu làm thương hiệu cá nhân nào khiến bạn phản cảm nhất và bạn tuyệt đối không muốn bị gắn mác nào?', self_hint: 'Nói thẳng quan điểm thật của bạn.', probes: [], min_words: 15, check_vague: false, locked: false }
+      { code: '2.2.1', stage: 2, group: '2.2', order: 19, mode: 'hybrid', branch: '', output: 'Tuyên bố định vị', question_self: 'Anh/chị hãy liệt kê tên 3 đối thủ nổi bật nhất cùng tệp khách, và nêu điểm khác biệt trong quy trình/cách làm của anh/chị (không tính giá rẻ).', self_hint: 'Ghi tên 3 đối thủ + 1–2 điểm khác biệt cốt lõi.', probes: [], min_words: 25, check_vague: true, locked: false },
+      { code: '2.2.2', stage: 2, group: '2.2', order: 20, mode: 'self', branch: '', output: 'Tuyên bố định vị', question_self: 'Trong ngành Nha khoa thẩm mỹ, kiểu làm thương hiệu cá nhân nào khiến anh/chị phản cảm nhất và anh/chị tuyệt đối không muốn bị gắn mác nào?', self_hint: 'Anh/chị cứ nói thẳng quan điểm thật của mình.', probes: [], min_words: 15, check_vague: false, locked: false }
     ];
 
     var s2BranchA = [
-      { code: '2.3.1A', stage: 2, group: '2.3', order: 22, mode: 'self', branch: 'A', output: 'Cấu trúc sản phẩm & phễu chuyển đổi', question_self: 'Liệt kê sản phẩm/dịch vụ kèm khoảng giá, biên lợi nhuận ước tính, gói dễ chốt nhất và gói không muốn đẩy mạnh nữa.', self_hint: 'Gạch đầu dòng ngắn gọn từng gói dịch vụ.', probes: [], min_words: 10, check_vague: false, locked: false },
-      { code: '2.3.2A', stage: 2, group: '2.3', order: 23, mode: 'hybrid', branch: 'A', output: 'Cấu trúc sản phẩm & phễu chuyển đổi', question_self: 'Có khoảng cách nào giữa lời hứa thương hiệu cá nhân của bạn và trải nghiệm thực tế của đội ngũ không?', self_hint: 'Chia sẻ thật các điểm khách hay góp ý.', probes: [], min_words: 20, check_vague: true, locked: false },
-      { code: '2.3.3A', stage: 2, group: '2.3', order: 24, mode: 'hybrid', branch: 'A', output: 'Cấu trúc sản phẩm & phễu chuyển đổi', question_self: 'Năng lực tối đa hiện tại mỗi tháng là bao nhiêu khách? Nếu tăng thêm 20–30 khách, khâu nào sẽ gãy đầu tiên?', self_hint: 'Nêu con số tối đa và khâu phụ thuộc vào bạn nhất.', probes: [], min_words: 20, check_vague: true, locked: false }
+      { code: '2.3.1A', stage: 2, group: '2.3', order: 22, mode: 'self', branch: 'A', output: 'Cấu trúc sản phẩm & phễu chuyển đổi', question_self: 'Anh/chị hãy liệt kê sản phẩm/dịch vụ kèm khoảng giá, biên lợi nhuận ước tính, gói dễ chốt nhất và gói không muốn đẩy mạnh nữa.', self_hint: 'Gạch đầu dòng ngắn gọn từng gói dịch vụ.', probes: [], min_words: 10, check_vague: false, locked: false },
+      { code: '2.3.2A', stage: 2, group: '2.3', order: 23, mode: 'hybrid', branch: 'A', output: 'Cấu trúc sản phẩm & phễu chuyển đổi', question_self: 'Có khoảng cách nào giữa lời hứa thương hiệu cá nhân của anh/chị và trải nghiệm thực tế của đội ngũ không?', self_hint: 'Chia sẻ thật các điểm khách hay góp ý.', probes: [], min_words: 20, check_vague: true, locked: false },
+      { code: '2.3.3A', stage: 2, group: '2.3', order: 24, mode: 'hybrid', branch: 'A', output: 'Cấu trúc sản phẩm & phễu chuyển đổi', question_self: 'Năng lực tối đa hiện tại mỗi tháng là bao nhiêu khách? Nếu tăng thêm 20–30 khách, khâu nào sẽ gãy đầu tiên?', self_hint: 'Nêu con số tối đa và khâu phụ thuộc vào anh/chị nhất.', probes: [], min_words: 20, check_vague: true, locked: false }
     ];
 
     var s2BranchB = [
-      { code: '2.3.2B', stage: 2, group: '2.3', order: 26, mode: 'self', branch: 'B', output: 'Cấu trúc sản phẩm & phễu chuyển đổi', question_self: 'Đã từng có ai trả tiền cho lời khuyên/sự hỗ trợ của bạn chưa? Nếu tuần tới mở gói thử nghiệm, bạn sẽ mời đích danh 5 ai đầu tiên?', self_hint: 'Liệt kê cụ thể các lần đã nhận tiền (hoặc "Chưa") và 5 người có thể mời.', probes: [], min_words: 10, check_vague: false, locked: false }
+      { code: '2.3.2B', stage: 2, group: '2.3', order: 26, mode: 'self', branch: 'B', output: 'Cấu trúc sản phẩm & phễu chuyển đổi', question_self: 'Đã từng có ai trả tiền cho lời khuyên/sự hỗ trợ của anh/chị chưa? Nếu tuần tới mở gói thử nghiệm, anh/chị sẽ mời đích danh 5 ai đầu tiên?', self_hint: 'Liệt kê cụ thể các lần đã nhận tiền (hoặc "Chưa") và 5 người có thể mời.', probes: [], min_words: 10, check_vague: false, locked: false }
     ];
 
     var questions = s1Questions.slice();
@@ -1054,23 +1150,20 @@
         branch: demoStore.branch,
         stages_open: stageMode === 2 ? [1, 2] : [1],
         stages_locked: stageMode === 2 ? [1] : [],
-        intro: 'Chào Minh Anh, đây là bảng chuẩn bị dữ kiện trước buổi làm việc xây dựng thương hiệu cá nhân trong lĩnh vực Nha khoa thẩm mỹ. Mọi câu trả lời sẽ được tự động lưu nháp để bạn điền dần khi rảnh.',
+        intro: 'Chào anh/chị, đây là bảng chuẩn bị dữ kiện trước buổi làm việc xây dựng thương hiệu cá nhân trong lĩnh vực Nha khoa thẩm mỹ. Mọi câu trả lời sẽ được tự động lưu nháp để anh/chị điền dần khi rảnh.',
         deadline: '28/11/2026',
         has_consented: demoStore.consented
       },
       round: 'R1',
       needs_branch_choice: stageMode === 2 && !demoStore.branch,
-      stage_titles: {
-        1: 'Giai đoạn 1: Khai thác thông tin & Chẩn đoán hiện trạng',
-        2: 'Giai đoạn 2: Định vị chiến lược & Kiến trúc kinh doanh'
-      },
+      stage_titles: { 1: 'Phần 1', 2: 'Phần 2' },
       questions: questions,
       responses: Object.assign({}, demoStore.responses),
       submitted_stages: {},
       config: {
         vague_words: ['rất tận tâm', 'khách rất thích', 'rất hài lòng', 'chất lượng cao', 'uy tín', 'chuyên nghiệp', 'tận tình', 'hiệu quả cao'],
         consent_version: 'v1.0',
-        consent_text: 'Tôi đồng ý cung cấp thông tin này cho quá trình tư vấn thương hiệu cá nhân. Dữ liệu chỉ phục vụ cho dự án của tôi và có thể được chuyên gia phân tích bằng công cụ AI ở chế độ không huấn luyện mô hình.'
+        consent_text: 'Tôi đồng ý cung cấp thông tin này cho quá trình tư vấn thương hiệu cá nhân. Dữ liệu chỉ phục vụ cho dự án tư vấn của tôi.'
       }
     };
   }

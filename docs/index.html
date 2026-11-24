@@ -14,8 +14,8 @@
   <div id="inAppBanner" class="inapp-banner hidden" role="alert">
     <div class="inapp-content">
       <div class="inapp-text">
-        <strong>Bạn đang mở link trong <span id="inAppName">trình duyệt ứng dụng</span>.</strong>
-        Để tránh mất bài khi thoát ứng dụng và dùng giọng nói mượt hơn, hãy bấm dấu <b>⋮</b> hoặc <b>⋯</b> ở góc màn hình rồi chọn <b>"Mở bằng Safari / Chrome"</b>.
+        <strong>Anh/chị đang mở link trong <span id="inAppName">trình duyệt ứng dụng</span>.</strong>
+        Để tránh mất bài khi thoát ứng dụng và dùng giọng nói mượt hơn, anh/chị hãy bấm dấu <b>⋮</b> hoặc <b>⋯</b> ở góc màn hình rồi chọn <b>"Mở bằng Safari / Chrome"</b>.
       </div>
       <button id="dismissInAppBtn" class="icon-btn" aria-label="Đóng thông báo">✕</button>
     </div>
@@ -25,8 +25,8 @@
   <div id="demoBanner" class="demo-banner hidden">
     <span>🧪 <b>Chế độ Demo</b> – dữ liệu chỉ lưu tạm trên trình duyệt.</span>
     <div class="demo-controls">
-      <button id="demoStage1Btn" class="demo-pill active" type="button">Giai đoạn 1</button>
-      <button id="demoStage2Btn" class="demo-pill" type="button">GĐ 2 (chọn nhánh + khóa GĐ1)</button>
+      <button id="demoStage1Btn" class="demo-pill active" type="button">Phần 1</button>
+      <button id="demoStage2Btn" class="demo-pill" type="button">Phần 2 (chọn nhánh)</button>
     </div>
   </div>
 
@@ -40,7 +40,7 @@
       <div class="header-right">
         <span id="syncBadge" class="sync-badge sync-idle">Sẵn sàng</span>
         <button id="drawerTrigger" class="progress-pill" type="button" aria-haspopup="dialog">
-          <span id="progressPillText">Câu 1/9 · GĐ 1</span>
+          <span id="progressPillText">Câu 1/9</span>
           <span aria-hidden="true">▾</span>
         </button>
       </div>
@@ -55,7 +55,7 @@
     <!-- Màn hình Đang tải -->
     <section id="viewLoading" class="card center-card">
       <div class="spinner" aria-hidden="true"></div>
-      <p class="muted">Đang tải hồ sơ phỏng vấn của bạn...</p>
+      <p class="muted">Đang tải hồ sơ phỏng vấn của anh/chị...</p>
     </section>
 
     <!-- Màn hình Lỗi / Hết hạn / Thiếu link -->
@@ -68,8 +68,7 @@
 
     <!-- Màn hình 1: Chào & Đồng ý bảo mật -->
     <section id="viewWelcome" class="card hidden">
-      <div class="eyebrow" id="welcomeStageBadge">GIAI ĐOẠN 1</div>
-      <h1 class="h1" id="welcomeGreeting">Xin chào bạn</h1>
+      <h1 class="h1" id="welcomeGreeting">Xin chào anh/chị</h1>
       <p id="welcomeIntro" class="lead"></p>
 
       <div class="info-grid">
@@ -90,9 +89,9 @@
       <div class="tips-box">
         <div class="tips-title">Để hoàn thành nhẹ nhàng và chất lượng nhất:</div>
         <ul>
-          <li>Bạn không cần làm hết trong một lần — hệ thống tự lưu lại để bạn quay lại làm tiếp bất cứ lúc nào.</li>
-          <li>Gặp câu cần lục số liệu/tin nhắn, cứ bấm <b>"Làm sau"</b> để nhảy sang câu khác trước.</li>
-          <li>Trên điện thoại, bạn có thể bấm nút <b>🎤 micro trên bàn phím</b> để nói thành chữ cho nhanh và tự nhiên.</li>
+          <li>Anh/chị không cần làm hết trong một lần — hệ thống tự lưu lại để anh/chị quay lại làm tiếp bất cứ lúc nào.</li>
+          <li>Gặp câu cần lục số liệu/tin nhắn, anh/chị cứ bấm <b>"Làm sau"</b> để nhảy sang câu khác trước.</li>
+          <li>Trên điện thoại, anh/chị có thể bấm nút <b>🎤 micro trên bàn phím</b> để nói thành chữ cho nhanh và tự nhiên.</li>
         </ul>
       </div>
 
@@ -111,12 +110,11 @@
     <!-- Màn hình 2: Câu hỏi (mỗi màn 1 câu) -->
     <section id="viewQuestion" class="card hidden">
       <div class="q-meta-row">
-        <span id="qOutputBadge" class="badge">Hồ sơ năng lực</span>
         <span id="qCodeBadge" class="code-pill">1.2.2</span>
       </div>
 
       <div id="lockedNotice" class="locked-notice hidden">
-        🔒 <b>Giai đoạn này đã được chốt</b> sau buổi làm việc trước. Bạn có thể xem lại câu trả lời của mình nhưng không cần chỉnh sửa thêm.
+        🔒 <b>Phần này đã được chốt</b> sau buổi làm việc trước. Anh/chị có thể xem lại câu trả lời của mình nhưng không cần chỉnh sửa thêm.
       </div>
 
       <h2 id="qTitle" class="question-text"></h2>
@@ -132,7 +130,7 @@
       </details>
 
       <div class="editor-wrap">
-        <textarea id="answerInput" class="answer-textarea" rows="6" placeholder="Nhập câu trả lời của bạn tại đây (hoặc bấm nút micro trên bàn phím điện thoại để nói)..."></textarea>
+        <textarea id="answerInput" class="answer-textarea" rows="6" placeholder="Nhập câu trả lời của anh/chị tại đây (hoặc bấm nút micro trên bàn phím điện thoại để nói)..."></textarea>
         <div class="editor-toolbar">
           <div class="toolbar-left">
             <button id="voiceBtn" class="voice-btn hidden" type="button">
@@ -155,8 +153,17 @@
             <p id="evidenceReason" class="evidence-reason"></p>
           </div>
         </div>
-        <p class="evidence-prompt">Bạn có thể kể thêm <b>1 con số</b>, <b>1 sự việc cụ thể</b> hoặc <b>1 câu nói nguyên văn</b> không?</p>
+        <p class="evidence-prompt">Anh/chị có thể kể thêm <b>1 con số</b>, <b>1 sự việc cụ thể</b> hoặc <b>1 câu nói nguyên văn</b> không?</p>
         <textarea id="extraInput" class="answer-textarea extra-textarea" rows="3" placeholder="Ví dụ: tháng 8 vừa rồi có 3 khách nhắn hỏi, doanh thu tăng 25%..."></textarea>
+        <div class="editor-toolbar extra-toolbar">
+          <div class="toolbar-left">
+            <button id="extraVoiceBtn" class="voice-btn hidden" type="button">
+              <span class="voice-dot"></span>
+              <span id="extraVoiceBtnLabel">🎤 Nói thành chữ</span>
+            </button>
+            <span id="extraMobileMicTip" class="mic-tip">💡 Có thể dùng micro trên bàn phím điện thoại</span>
+          </div>
+        </div>
         <div class="evidence-actions">
           <button id="skipEvidenceBtn" class="btn btn-ghost" type="button">Bỏ qua, đi tiếp</button>
           <button id="saveEvidenceBtn" class="btn btn-amber" type="button">Lưu bổ sung &amp; Tiếp →</button>
@@ -167,6 +174,14 @@
       <div id="savedExtraWrap" class="saved-extra hidden">
         <span class="saved-extra-label">Bổ sung bằng chứng đã lưu:</span>
         <textarea id="savedExtraInput" class="answer-textarea extra-textarea" rows="2" placeholder="Bổ sung dẫn chứng (tuỳ chọn)..."></textarea>
+        <div class="editor-toolbar extra-toolbar" id="savedExtraToolbar">
+          <div class="toolbar-left">
+            <button id="savedExtraVoiceBtn" class="voice-btn hidden" type="button">
+              <span class="voice-dot"></span>
+              <span id="savedExtraVoiceBtnLabel">🎤 Nói thành chữ</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="q-footer">
@@ -183,9 +198,8 @@
 
     <!-- Màn hình 2.5: Chọn nhánh A / B trước nhóm 2.3 -->
     <section id="viewBranch" class="card hidden">
-      <div class="eyebrow">GIAI ĐOẠN 2 · PHÂN NHÁNH KINH DOANH</div>
-      <h2 class="h2">Hiện tại bạn đã có mô hình kinh doanh / sản phẩm dịch vụ đang bán chưa?</h2>
-      <p class="muted">Câu trả lời giúp hệ thống mở đúng bộ câu hỏi phù hợp cho phần cuối Giai đoạn 2 (mục 2.3).</p>
+      <h2 class="h2">Hiện tại anh/chị đã có mô hình kinh doanh / sản phẩm dịch vụ đang bán chưa?</h2>
+      <p class="muted">Câu trả lời giúp hệ thống mở đúng bộ câu hỏi phù hợp nhất cho anh/chị ở phần tiếp theo.</p>
 
       <div class="branch-grid">
         <button id="branchABtn" class="branch-card" type="button">
@@ -222,7 +236,7 @@
       <p id="doneMessage" class="lead"></p>
       <p id="doneTimestamp" class="muted small"></p>
       <div class="done-actions">
-        <button id="reopenReviewBtn" class="btn btn-secondary" type="button">Xem lại câu trả lời của tôi</button>
+        <button id="reopenReviewBtn" class="btn btn-secondary" type="button">Xem lại câu trả lời của anh/chị</button>
       </div>
     </section>
   </main>

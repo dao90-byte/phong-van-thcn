@@ -70,10 +70,10 @@ var PROP_KEYS = {
 };
 
 var STAGE_TITLES = {
-  1: 'Giai đoạn 1: Khai thác thông tin & Chẩn đoán hiện trạng',
-  2: 'Giai đoạn 2: Định vị chiến lược & Kiến trúc kinh doanh',
-  3: 'Giai đoạn 3: Thiết kế hệ thống nội dung & Tài sản chuyển đổi',
-  4: 'Giai đoạn 4: Đo lường, tối ưu & Phát triển tầm ảnh hưởng'
+  1: 'Giai đoạn 1',
+  2: 'Giai đoạn 2',
+  3: 'Giai đoạn 3',
+  4: 'Giai đoạn 4'
 };
 
 var STAGE_CHECKLIST_LABELS = {
@@ -406,8 +406,8 @@ function toBlockquote_(text) {
 function interpolateVars_(text, client) {
   if (!text) return '';
   return String(text)
-    .replace(/\{name\}/g, String(client.name || 'bạn'))
-    .replace(/\{field\}/g, String(client.field || 'lĩnh vực của bạn'));
+    .replace(/\{name\}/g, 'anh/chị')
+    .replace(/\{field\}/g, String((client && client.field) || 'lĩnh vực của anh/chị'));
 }
 
 /**

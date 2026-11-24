@@ -3,7 +3,7 @@
  * Module nghiệp vụ thuần phía trình duyệt (tách biệt DOM để chạy kiểm thử tự động bằng JS engine).
  * Bao gồm: nhận diện Zalo/FB WebView, tách token từ #k=, đếm từ tiếng Việt,
  * kiểm tra đóng đinh bằng chứng theo từng câu (có ngoại lệ số liệu/trích dẫn),
- * và quản lý hàng đợi lưu offline.
+ * điều hướng thông minh từ màn Xem lại, và quản lý hàng đợi lưu offline.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -114,7 +114,7 @@
     }
 
     if (checkVague && Array.isArray(vagueWords) && vagueWords.length > 0) {
-      // Ngoại lệ: nếu khách đã đưa số liệu cụ thể hoặc trích dẫn nguyên văn -> không báo động giả
+      // Ngoại lệ: nếu anh/chị đã đưa số liệu cụ thể hoặc trích dẫn nguyên văn -> không báo động giả
       if (!hasHardEvidenceSignal(text)) {
         var lower = text.toLowerCase();
         for (var i = 0; i < vagueWords.length; i++) {
@@ -134,7 +134,7 @@
     if (flags.indexOf('mo_ho') !== -1 && flags.indexOf('ngan') !== -1) {
       reason = 'Câu trả lời hơi ngắn và có cụm từ còn khá chung chung ("' + matchedVague.slice(0, 2).join('", "') + '").';
     } else if (flags.indexOf('mo_ho') !== -1) {
-      reason = 'Mình thấy có cụm từ khá chung chung ("' + matchedVague.slice(0, 2).join('", "') + '").';
+      reason = 'Câu trả lời có cụm từ khá chung chung ("' + matchedVague.slice(0, 2).join('", "') + '").';
     } else if (flags.indexOf('ngan') !== -1) {
       reason = 'Câu trả lời hiện khá ngắn (' + wc + ' từ) nên có thể còn thiếu bối cảnh.';
     }
@@ -186,11 +186,70 @@
   }
 
   /**
+   * Tìm chỉ số câu hỏi chưa trả lời kế tiếp trong cùng activeStage (quét vòng tròn, loại trừ excludeIndex).
+   */
+  function findNextUnansweredIndex(questions, responses, activeStage, excludeIndex) {
+    var list = Array.isArray(questions) ? questions : [];
+    var len = list.length;
+    if (!len) return -1;
+    var start = typeof excludeIndex === 'number' ? excludeIndex : -1;
+    for (var offset = 1; offset <= len; offset++) {
+      var idx = (start + offset) % len;
+      if (idx === excludeIndex) continue;
+      var q = list[idx];
+      if (!q || q.stage !== activeStage || q.locked) continue;
+      var r = responses && responses[q.code];
+      if (!r || !String(r.answer || '').trim()) {
+        return idx;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Xác định bước điều hướng kế tiếp:
+   * - Khi đang mở câu từ màn Xem lại:
+   *   + Nếu mở câu chưa trả lời: nhảy thẳng sang câu chưa trả lời tiếp theo; hết câu chưa trả lời thì quay về màn Xem lại.
+   *   + Nếu mở câu đã trả lời (để sửa): quay thẳng về màn Xem lại.
+   * - Khi đi tuần tự bình thường: sang câu kế tiếp, hoặc màn chọn nhánh (nếu cần), hoặc màn Xem lại.
+   */
+  function findNextNavigationTarget(opts) {
+    var questions = (opts && opts.questions) || [];
+    var responses = (opts && opts.responses) || {};
+    var currentIndex = Number(opts && opts.currentIndex) || 0;
+    var activeStage = Number(opts && opts.activeStage) || 1;
+    var returnToReviewMode = Boolean(opts && opts.returnToReviewMode);
+    var openedUnansweredFromReview = Boolean(opts && opts.openedUnansweredFromReview);
+    var needsBranchChoice = Boolean(opts && opts.needsBranchChoice);
+    var hasBranch = Boolean(opts && opts.hasBranch);
+
+    if (returnToReviewMode) {
+      if (openedUnansweredFromReview) {
+        var nextUnanswered = findNextUnansweredIndex(questions, responses, activeStage, currentIndex);
+        if (nextUnanswered !== -1) {
+          return { type: 'question', index: nextUnanswered };
+        }
+      }
+      if (needsBranchChoice && activeStage === 2 && !hasBranch) {
+        return { type: 'branch' };
+      }
+      return { type: 'review' };
+    }
+
+    if (currentIndex < questions.length - 1) {
+      return { type: 'question', index: currentIndex + 1 };
+    }
+    if (needsBranchChoice && activeStage === 2 && !hasBranch) {
+      return { type: 'branch' };
+    }
+    return { type: 'review' };
+  }
+
+  /**
    * Quản lý hàng đợi đồng bộ offline (pure array helpers).
    */
   function enqueuePendingSave(queue, item) {
     var list = Array.isArray(queue) ? queue.slice() : [];
-    // Khử trùng theo code + round: giữ bản mới nhất
     var filtered = list.filter(function (q) {
       return !(q.code === item.code && q.round === item.round);
     });
@@ -212,6 +271,8 @@
     evaluateEvidence: evaluateEvidence,
     computeStageProgress: computeStageProgress,
     determineActiveStage: determineActiveStage,
+    findNextUnansweredIndex: findNextUnansweredIndex,
+    findNextNavigationTarget: findNextNavigationTarget,
     enqueuePendingSave: enqueuePendingSave,
     dequeuePendingSave: dequeuePendingSave
   };

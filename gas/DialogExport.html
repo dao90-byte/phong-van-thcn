@@ -97,13 +97,25 @@
     }
 
     function copyOutput() {
-      var text = document.getElementById('output').value;
+      var out = document.getElementById('output');
+      var text = out.value;
       if (!text) return;
-      navigator.clipboard.writeText(text).then(function () {
+      var done = function () {
         var btn = document.getElementById('copyBtn');
         btn.textContent = '✅ Đã copy! Dán vào LLM ngay';
         setTimeout(function () { btn.textContent = '📋 Copy 1-click để dán LLM'; }, 2500);
-      });
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(function () {
+          out.select();
+          document.execCommand('copy');
+          done();
+        });
+      } else {
+        out.select();
+        document.execCommand('copy');
+        done();
+      }
     }
   </script>
 </body>
