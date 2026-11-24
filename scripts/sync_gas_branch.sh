@@ -26,7 +26,7 @@ else
 fi
 
 cp -R "$TMP_DIR"/* .
-git add -A
+git add AdminMenu.gs Api.gs Backup.gs Config.gs Export.gs SeedData.gs Setup.gs appsscript.json Dialog*.html
 if git diff --cached --quiet; then
   echo "Nhánh gas đã mới nhất, không có thay đổi."
 else
