@@ -32,8 +32,8 @@ function menuOpenCommandCenter() {
   }
   tpl.initialSnapshotJson = safeJsonForHtml_(payload);
   var html = tpl.evaluate()
-    .setWidth(1160)
-    .setHeight(740);
+    .setWidth(1120)
+    .setHeight(720);
   SpreadsheetApp.getUi().showModalDialog(html, 'Trung tâm Điều khiển – Phỏng vấn Thương hiệu Cá nhân');
 }
 

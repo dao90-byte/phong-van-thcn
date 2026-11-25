@@ -82,7 +82,7 @@ var PLAIN_TEXT_COLUMNS = {
 };
 
 var DEFAULT_ROUND = 'R1';
-var CACHE_TTL_SECONDS = 300;
+var CACHE_TTL_SECONDS = 1800;
 var CACHE_KEYS = {
   STATIC_BUNDLE: 'thcn_static_bundle_v3'
 };
