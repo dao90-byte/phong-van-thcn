@@ -30,6 +30,13 @@
       _tabColor: null,
       _condRules: condRules,
       getName: function () { return name; },
+      setName: function (newName) {
+        var oldName = name;
+        name = newName;
+        this._name = newName;
+        if (typeof this._onRename === 'function') this._onRename(oldName, newName);
+        return this;
+      },
       clear: function () { grid.length = 0; },
       setTabColor: function (hex) { tabColor = hex; this._tabColor = hex; },
       getTabColor: function () { return tabColor; },
@@ -138,6 +145,11 @@
         getSheets: function () { return sheetOrder.map(function (n) { return sheets[n]; }); },
         insertSheet: function (n) {
           var s = createMockSheet(n);
+          s._onRename = function (oldName, newName) {
+            delete sheets[oldName];
+            sheets[newName] = s;
+            sheetOrder = sheetOrder.map(function (x) { return x === oldName ? newName : x; });
+          };
           sheets[n] = s;
           sheetOrder.push(n);
           return s;
