@@ -191,15 +191,35 @@ for (var k = 0; k < 25; k++) {
 }
 assert(rateHit, 'Rate-limit kích hoạt sau >20 lần dò token sai');
 
-// ==================== TEST 8: Chống lỗi typed column của Google Sheets ====================
+// ==================== TEST 8: Chống lỗi lazy-batched typed column & locale vi_VN ====================
 var typedClientsSheet = env.ss.getSheetByName(TABS.CLIENTS);
 var origGetRange = typedClientsSheet.getRange;
+var origGetLastCol = typedClientsSheet.getLastColumn;
+var origFlush = SpreadsheetApp.flush;
+var pendingTypedError = null;
+SpreadsheetApp.flush = function () {
+  if (pendingTypedError) {
+    var err = pendingTypedError;
+    pendingTypedError = null;
+    throw err;
+  }
+  return origFlush.call(this);
+};
+typedClientsSheet.getLastColumn = function () {
+  if (pendingTypedError) {
+    var err = pendingTypedError;
+    pendingTypedError = null;
+    throw err;
+  }
+  return origGetLastCol.call(this);
+};
 typedClientsSheet.getRange = function (row, col, numRows, numCols) {
   var r = origGetRange.call(this, row, col, numRows, numCols);
   var origSetFmt = r.setNumberFormat;
   r.setNumberFormat = function (fmt) {
-    if (col === 9) { // giả lập cột stages_open bị Google Sheets đánh dấu typed column
-      throw new Error('Bạn không thể đặt định dạng số của các ô trong một cột đã nhập.');
+    if (col === 9) { // giả lập Google Sheets chỉ ném lỗi khi flush/đọc kế tiếp (lazy batching)
+      pendingTypedError = new Error('Bạn không thể đặt định dạng số của các ô trong một cột đã nhập.');
+      return r;
     }
     return origSetFmt.call(this, fmt);
   };
@@ -209,11 +229,17 @@ var typedSetupOk = false;
 try {
   setupWorkbook();
   var c3 = ccCreateClient({ name: 'Phạm Bảo Ngọc', field: 'Luật doanh nghiệp', template: 'chuan' });
-  typedSetupOk = (c3.client_id === 'C003');
+  typedSetupOk = (c3.client_id === 'C003' && pendingTypedError === null);
 } catch (e) {
   typedSetupOk = false;
 }
-assert(typedSetupOk, 'setupWorkbook & upsertRowByHeader bỏ qua an toàn cột typed column không bị crash');
+assert(typedSetupOk, 'setupWorkbook & upsertRowByHeader bắt gọn lỗi lazy-batched typed column ngay trong flush()');
+
+var dashSheet = env.ss.getSheetByName(TABS.DASHBOARD);
+var dashFormulaA6 = dashSheet.getRange(6, 1).getValues()[0][0];
+var dashFormulaH6 = dashSheet.getRange(6, 8).getValues()[0][0];
+assert(dashFormulaA6 === '=IF(Clients!A2="";"";Clients!A2)' && dashFormulaH6.indexOf('{"charttype"\\"bar";"max"\\') !== -1,
+  'Dashboard tự sinh công thức chuẩn locale vi_VN (dùng ; ngăn đối số và \\ ngăn cột mảng SPARKLINE)');
 
 print('\n==============================');
 print('GAS v3 TESTS: ' + passed + ' passed, ' + failed + ' failed');

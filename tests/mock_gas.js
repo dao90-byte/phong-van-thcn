@@ -133,6 +133,7 @@
         getId: function () { return 'SS_MOCK_001'; },
         getName: function () { return 'CSDL Phỏng vấn THCN'; },
         getUrl: function () { return 'https://docs.google.com/spreadsheets/d/SS_MOCK_001/edit'; },
+        getSpreadsheetLocale: function () { return 'vi_VN'; },
         getSheetByName: function (n) { return sheets[n] || null; },
         getSheets: function () { return sheetOrder.map(function (n) { return sheets[n]; }); },
         insertSheet: function (n) {
