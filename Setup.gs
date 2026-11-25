@@ -231,25 +231,19 @@ function getFormulaSeparators_(ss) {
  * - Dòng 6..55: 50 dòng công thức động tự thích ứng locale (vi_VN dùng ';' & '\', en_US dùng ',') kèm thanh tiến độ SPARKLINE & màu trạng thái điều kiện.
  */
 function rebuildDashboardTab_(ss) {
-  var sheet = ss.getSheetByName(TABS.DASHBOARD);
-  if (!sheet) {
+  var existing = ss.getSheetByName(TABS.DASHBOARD);
+  var sheet;
+  if (existing && typeof existing.setName === 'function') {
+    // Dashboard chỉ chứa 100% công thức động (không chứa dữ liệu gốc).
+    // Tạo tab mới thay thế để dọn sạch hoàn toàn Google Sheets Table / định dạng cũ nếu có.
+    sheet = ss.insertSheet(TABS.DASHBOARD + '_tmp_' + Date.now());
+    ss.deleteSheet(existing);
+    sheet.setName(TABS.DASHBOARD);
+  } else if (existing) {
+    sheet = existing;
+    if (typeof sheet.clear === 'function') sheet.clear();
+  } else {
     sheet = ss.insertSheet(TABS.DASHBOARD);
-  }
-  if (typeof sheet.clear === 'function') {
-    try {
-      sheet.clear();
-      SpreadsheetApp.flush();
-    } catch (e) {
-      // Nếu tab Dashboard cũ bị khóa dạng Google Sheets Table, tạo lại tab sạch (Dashboard chỉ chứa 100% công thức)
-      try {
-        var fresh = ss.insertSheet(TABS.DASHBOARD + '_tmp_' + Date.now());
-        ss.deleteSheet(sheet);
-        fresh.setName(TABS.DASHBOARD);
-        sheet = fresh;
-      } catch (e2) {
-        try { sheet.clearContents(); } catch (e3) {}
-      }
-    }
   }
 
   var sep = getFormulaSeparators_(ss);
