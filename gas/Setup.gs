@@ -129,11 +129,15 @@ function formatPlainTextColumns_(sheet, tabName) {
   if (plainCols.length === 0) return;
 
   var info = getTabHeaders_(sheet);
-  var maxRows = Math.max(sheet.getMaxRows(), 200);
+  var numRows = Math.max(sheet.getMaxRows() - 1, 1);
   plainCols.forEach(function (colName) {
     if (Object.prototype.hasOwnProperty.call(info.map, colName)) {
       var colIdx = info.map[colName] + 1;
-      sheet.getRange(2, colIdx, maxRows - 1, 1).setNumberFormat('@');
+      try {
+        sheet.getRange(2, colIdx, numRows, 1).setNumberFormat('@');
+      } catch (e) {
+        // Bỏ qua an toàn nếu cột là typed column (Google Sheets Table / Dropdown / Date / Checkbox)
+      }
     }
   });
 }

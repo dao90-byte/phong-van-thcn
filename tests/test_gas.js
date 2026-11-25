@@ -191,6 +191,30 @@ for (var k = 0; k < 25; k++) {
 }
 assert(rateHit, 'Rate-limit kích hoạt sau >20 lần dò token sai');
 
+// ==================== TEST 8: Chống lỗi typed column của Google Sheets ====================
+var typedClientsSheet = env.ss.getSheetByName(TABS.CLIENTS);
+var origGetRange = typedClientsSheet.getRange;
+typedClientsSheet.getRange = function (row, col, numRows, numCols) {
+  var r = origGetRange.call(this, row, col, numRows, numCols);
+  var origSetFmt = r.setNumberFormat;
+  r.setNumberFormat = function (fmt) {
+    if (col === 9) { // giả lập cột stages_open bị Google Sheets đánh dấu typed column
+      throw new Error('Bạn không thể đặt định dạng số của các ô trong một cột đã nhập.');
+    }
+    return origSetFmt.call(this, fmt);
+  };
+  return r;
+};
+var typedSetupOk = false;
+try {
+  setupWorkbook();
+  var c3 = ccCreateClient({ name: 'Phạm Bảo Ngọc', field: 'Luật doanh nghiệp', template: 'chuan' });
+  typedSetupOk = (c3.client_id === 'C003');
+} catch (e) {
+  typedSetupOk = false;
+}
+assert(typedSetupOk, 'setupWorkbook & upsertRowByHeader bỏ qua an toàn cột typed column không bị crash');
+
 print('\n==============================');
 print('GAS v3 TESTS: ' + passed + ' passed, ' + failed + ' failed');
 if (failed > 0) throw new Error('GAS v3 test suite failed with ' + failed + ' failures');

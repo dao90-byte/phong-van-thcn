@@ -263,7 +263,11 @@ function applyPlainTextToRowRange_(rowRange, headers, plainCols) {
   var rowNum = rowRange.getRow();
   for (var c = 0; c < headers.length; c++) {
     if (plainCols.indexOf(headers[c]) !== -1) {
-      sheet.getRange(rowNum, c + 1).setNumberFormat('@');
+      try {
+        sheet.getRange(rowNum, c + 1).setNumberFormat('@');
+      } catch (e) {
+        // Bỏ qua an toàn nếu cột là typed column (Google Sheets Table / Dropdown / Date / Checkbox)
+      }
     }
   }
 }
