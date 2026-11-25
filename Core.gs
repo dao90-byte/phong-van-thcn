@@ -261,13 +261,28 @@ function applyPlainTextToRowRange_(rowRange, headers, plainCols) {
   if (!plainCols || plainCols.length === 0) return;
   var sheet = rowRange.getSheet();
   var rowNum = rowRange.getRow();
+  var colIndices = [];
   for (var c = 0; c < headers.length; c++) {
     if (plainCols.indexOf(headers[c]) !== -1) {
+      colIndices.push(c + 1);
+    }
+  }
+  if (colIndices.length === 0) return;
+
+  // Thử gộp 1 lần + flush trong try để bắt lỗi typed column ngay lập tức (tránh lỗi bị dồn sang lần đọc/ghi kế tiếp)
+  try {
+    SpreadsheetApp.flush();
+    for (var i = 0; i < colIndices.length; i++) {
+      sheet.getRange(rowNum, colIndices[i]).setNumberFormat('@');
+    }
+    SpreadsheetApp.flush();
+  } catch (e) {
+    // Fallback từng cột: giữ '@' cho các cột thường và bỏ qua an toàn cột typed column (Table / Dropdown / Date / Checkbox)
+    for (var j = 0; j < colIndices.length; j++) {
       try {
-        sheet.getRange(rowNum, c + 1).setNumberFormat('@');
-      } catch (e) {
-        // Bỏ qua an toàn nếu cột là typed column (Google Sheets Table / Dropdown / Date / Checkbox)
-      }
+        sheet.getRange(rowNum, colIndices[j]).setNumberFormat('@');
+        SpreadsheetApp.flush();
+      } catch (e2) {}
     }
   }
 }

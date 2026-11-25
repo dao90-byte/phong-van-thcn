@@ -130,16 +130,30 @@ function formatPlainTextColumns_(sheet, tabName) {
 
   var info = getTabHeaders_(sheet);
   var numRows = Math.max(sheet.getMaxRows() - 1, 1);
+  var colIndices = [];
   plainCols.forEach(function (colName) {
     if (Object.prototype.hasOwnProperty.call(info.map, colName)) {
-      var colIdx = info.map[colName] + 1;
-      try {
-        sheet.getRange(2, colIdx, numRows, 1).setNumberFormat('@');
-      } catch (e) {
-        // Bỏ qua an toàn nếu cột là typed column (Google Sheets Table / Dropdown / Date / Checkbox)
-      }
+      colIndices.push(info.map[colName] + 1);
     }
   });
+  if (colIndices.length === 0) return;
+
+  // Thử gộp 1 lần + flush trong try để bắt lỗi typed column ngay tại chỗ (tránh lỗi bị dồn sang getLastColumn của tab sau)
+  try {
+    SpreadsheetApp.flush();
+    colIndices.forEach(function (colIdx) {
+      sheet.getRange(2, colIdx, numRows, 1).setNumberFormat('@');
+    });
+    SpreadsheetApp.flush();
+  } catch (e) {
+    // Fallback từng cột: giữ '@' cho mọi cột thường và bỏ qua an toàn cột typed column
+    colIndices.forEach(function (colIdx) {
+      try {
+        sheet.getRange(2, colIdx, numRows, 1).setNumberFormat('@');
+        SpreadsheetApp.flush();
+      } catch (e2) {}
+    });
+  }
 }
 
 function applyCheckboxColumn_(sheet, colName) {
@@ -151,6 +165,7 @@ function applyCheckboxColumn_(sheet, colName) {
   try {
     var rule = SpreadsheetApp.newDataValidation().requireCheckbox().build();
     sheet.getRange(2, colIdx, Math.max(lastRow - 1, 50), 1).setDataValidation(rule);
+    SpreadsheetApp.flush();
   } catch (e) {}
 }
 
@@ -191,12 +206,29 @@ function organizeTabsAndColors_(ss) {
   }
 }
 
+function getFormulaSeparators_(ss) {
+  var locale = (ss && typeof ss.getSpreadsheetLocale === 'function')
+    ? String(ss.getSpreadsheetLocale() || '').toLowerCase()
+    : 'en_us';
+  var commaDecimalLangs = [
+    'vi', 'fr', 'de', 'es', 'pt', 'it', 'nl', 'ru', 'pl', 'cs', 'sk',
+    'hu', 'ro', 'bg', 'hr', 'sl', 'sr', 'uk', 'da', 'sv', 'no', 'nb',
+    'fi', 'tr', 'id', 'el', 'et', 'lv', 'lt', 'ca', 'eu', 'gl'
+  ];
+  var lang = locale.split('_')[0];
+  var useSemicolon = commaDecimalLangs.indexOf(lang) !== -1;
+  return {
+    arg: useSemicolon ? ';' : ',',
+    arrCol: useSemicolon ? '\\' : ','
+  };
+}
+
 /**
  * Dựng tab Dashboard trực quan (v3):
  * - Dòng 1: Tiêu đề + hướng dẫn mở Trung tâm Điều khiển
  * - Dòng 2-3: Thanh chỉ số KPI tổng quan (Tổng khách, Đang mở, Đã nộp GĐ1, Đã nộp GĐ2)
  * - Dòng 5: Tiêu đề bảng khách
- * - Dòng 6..55: 50 dòng công thức động kèm thanh tiến độ SPARKLINE & màu trạng thái điều kiện.
+ * - Dòng 6..55: 50 dòng công thức động tự thích ứng locale (vi_VN dùng ';' & '\', en_US dùng ',') kèm thanh tiến độ SPARKLINE & màu trạng thái điều kiện.
  */
 function rebuildDashboardTab_(ss) {
   var sheet = ss.getSheetByName(TABS.DASHBOARD);
@@ -204,8 +236,25 @@ function rebuildDashboardTab_(ss) {
     sheet = ss.insertSheet(TABS.DASHBOARD);
   }
   if (typeof sheet.clear === 'function') {
-    sheet.clear();
+    try {
+      sheet.clear();
+      SpreadsheetApp.flush();
+    } catch (e) {
+      // Nếu tab Dashboard cũ bị khóa dạng Google Sheets Table, tạo lại tab sạch (Dashboard chỉ chứa 100% công thức)
+      try {
+        var fresh = ss.insertSheet(TABS.DASHBOARD + '_tmp_' + Date.now());
+        ss.deleteSheet(sheet);
+        fresh.setName(TABS.DASHBOARD);
+        sheet = fresh;
+      } catch (e2) {
+        try { sheet.clearContents(); } catch (e3) {}
+      }
+    }
   }
+
+  var sep = getFormulaSeparators_(ss);
+  var s = sep.arg;
+  var ac = sep.arrCol;
 
   // Banner tiêu đề (dòng 1)
   sheet.getRange(1, 1, 1, 11).setValues([[
@@ -223,12 +272,12 @@ function rebuildDashboardTab_(ss) {
 
   sheet.getRange(3, 1, 1, 7).setFormulas([[
     '=COUNTA(Clients!A2:A)',
-    '=COUNTIF(Clients!N2:N,"active")',
-    '=COUNTIFS(StageReviews!C2:C,1,StageReviews!D2:D,"<>")',
-    '=COUNTIFS(StageReviews!C2:C,2,StageReviews!D2:D,"<>")',
-    '=COUNTIF(Responses!E2:E,"<>")',
-    '=COUNTIF(Responses!I2:I,"<>")',
-    '=COUNTIF(Clients!N2:N,"closed")'
+    '=COUNTIF(Clients!N2:N' + s + '"active")',
+    '=COUNTIFS(StageReviews!C2:C' + s + '1' + s + 'StageReviews!D2:D' + s + '"<>")',
+    '=COUNTIFS(StageReviews!C2:C' + s + '2' + s + 'StageReviews!D2:D' + s + '"<>")',
+    '=COUNTIF(Responses!E2:E' + s + '"<>")',
+    '=COUNTIF(Responses!I2:I' + s + '"<>")',
+    '=COUNTIF(Clients!N2:N' + s + '"closed")'
   ]]);
   sheet.getRange(3, 1, 1, 7).setFontWeight('bold').setBackground('#FFFFFF').setFontColor('#0F5257');
 
@@ -246,17 +295,17 @@ function rebuildDashboardTab_(ss) {
     var cr = i + 2; // dòng tương ứng trong tab Clients
     var dr = i + 6; // dòng hiện tại trong Dashboard
     formulas.push([
-      '=IF(Clients!A' + cr + '="","",Clients!A' + cr + ')',
-      '=IF(A' + dr + '="","",Clients!C' + cr + ')',
-      '=IF(A' + dr + '="","",Clients!D' + cr + ')',
-      '=IF(A' + dr + '="","",IF(Clients!H' + cr + '="","Tự chọn",Clients!H' + cr + '))',
-      '=IF(A' + dr + '="","",Clients!I' + cr + ')',
-      '=IF(A' + dr + '="","",IF(Clients!N' + cr + '="closed","🔒 Đã đóng",IF(COUNTIFS(StageReviews!$A$2:$A,A' + dr + ',StageReviews!$D$2:$D,"<>")>0,"🟢 Đã nộp",IF(G' + dr + '>0,"🟡 Đang làm","⚪ Chưa làm"))))',
-      '=IF(A' + dr + '="","",COUNTIFS(Responses!$A$2:$A,A' + dr + ',Responses!$E$2:$E,"<>"))',
-      '=IF(A' + dr + '="","",SPARKLINE(MIN(G' + dr + ',17),{"charttype","bar";"max",IF(ISNUMBER(SEARCH("2",E' + dr + ')),17,9);"color1","#0F5257"}))',
-      '=IF(A' + dr + '="","",COUNTIFS(Responses!$A$2:$A,A' + dr + ',Responses!$I$2:$I,"<>"))',
-      '=IF(A' + dr + '="","",IF(COUNTIFS(StageReviews!$A$2:$A,A' + dr + ',StageReviews!$C$2:$C,1,StageReviews!$D$2:$D,"<>")>0,"✓ GĐ1","–")&" | "&IF(COUNTIFS(StageReviews!$A$2:$A,A' + dr + ',StageReviews!$C$2:$C,2,StageReviews!$D$2:$D,"<>")>0,"✓ GĐ2","–"))',
-      '=IF(A' + dr + '="","",IFERROR(LEFT(INDEX(SORT(FILTER(Responses!$K$2:$K,Responses!$A$2:$A=A' + dr + '),1,FALSE),1),16),""))'
+      '=IF(Clients!A' + cr + '=""' + s + '""' + s + 'Clients!A' + cr + ')',
+      '=IF(A' + dr + '=""' + s + '""' + s + 'Clients!C' + cr + ')',
+      '=IF(A' + dr + '=""' + s + '""' + s + 'Clients!D' + cr + ')',
+      '=IF(A' + dr + '=""' + s + '""' + s + 'IF(Clients!H' + cr + '=""' + s + '"Tự chọn"' + s + 'Clients!H' + cr + '))',
+      '=IF(A' + dr + '=""' + s + '""' + s + 'Clients!I' + cr + ')',
+      '=IF(A' + dr + '=""' + s + '""' + s + 'IF(Clients!N' + cr + '="closed"' + s + '"🔒 Đã đóng"' + s + 'IF(COUNTIFS(StageReviews!$A$2:$A' + s + 'A' + dr + s + 'StageReviews!$D$2:$D' + s + '"<>")>0' + s + '"🟢 Đã nộp"' + s + 'IF(G' + dr + '>0' + s + '"🟡 Đang làm"' + s + '"⚪ Chưa làm"))))',
+      '=IF(A' + dr + '=""' + s + '""' + s + 'COUNTIFS(Responses!$A$2:$A' + s + 'A' + dr + s + 'Responses!$E$2:$E' + s + '"<>"))',
+      '=IF(A' + dr + '=""' + s + '""' + s + 'SPARKLINE(MIN(G' + dr + s + '17)' + s + '{"charttype"' + ac + '"bar";"max"' + ac + 'IF(ISNUMBER(SEARCH("2"' + s + 'E' + dr + '))' + s + '17' + s + '9);"color1"' + ac + '"#0F5257"}))',
+      '=IF(A' + dr + '=""' + s + '""' + s + 'COUNTIFS(Responses!$A$2:$A' + s + 'A' + dr + s + 'Responses!$I$2:$I' + s + '"<>"))',
+      '=IF(A' + dr + '=""' + s + '""' + s + 'IF(COUNTIFS(StageReviews!$A$2:$A' + s + 'A' + dr + s + 'StageReviews!$C$2:$C' + s + '1' + s + 'StageReviews!$D$2:$D' + s + '"<>")>0' + s + '"✓ GĐ1"' + s + '"–")&" | "&IF(COUNTIFS(StageReviews!$A$2:$A' + s + 'A' + dr + s + 'StageReviews!$C$2:$C' + s + '2' + s + 'StageReviews!$D$2:$D' + s + '"<>")>0' + s + '"✓ GĐ2"' + s + '"–"))',
+      '=IF(A' + dr + '=""' + s + '""' + s + 'IFERROR(LEFT(INDEX(SORT(FILTER(Responses!$K$2:$K' + s + 'Responses!$A$2:$A=A' + dr + ')' + s + '1' + s + 'FALSE)' + s + '1)' + s + '16)' + s + '""))'
     ]);
   }
   sheet.getRange(6, 1, formulas.length, headers.length).setFormulas(formulas);
