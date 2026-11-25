@@ -4,11 +4,6 @@
  */
 window.APP_CONFIG = {
   API_URL: 'https://script.google.com/macros/s/AKfycbwDPT-h3y3jDlGEmD2-HjABDeMgAoaIllfir8StmlyTV69pRM8eXYfKkgyvem-O035N/exec',
-
-  // Tên hiển thị trên tiêu đề trang
   BRAND_NAME: 'Phỏng vấn Thương hiệu Cá nhân',
-  CONSULTANT_NAME: 'Chuyên gia tư vấn',
-
-  // Đã tắt chế độ Demo trên bản chạy thật
-  ENABLE_DEMO: false
+  CONSULTANT_NAME: 'Chuyên gia tư vấn'
 };

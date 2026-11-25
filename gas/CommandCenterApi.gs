@@ -1,22 +1,136 @@
 /**
- * CommandCenterApi.gs (v3)
- * API nội bộ (chỉ gọi từ google.script.run trong Google Sheets — bảo mật 100% qua tài khoản Google của chuyên gia).
- * Cung cấp đầy đủ thao tác cho Trung tâm Điều khiển 1 cửa (CommandCenter.html):
- * - Danh sách khách kèm tiến độ thực, cờ cảnh báo, trạng thái nộp bài
- * - Tải trọn gói Workspace của 1 khách + dựng sẵn toàn bộ 4 gói 1-Click Copy (0ms trên UI)
- * - Tạo khách mới, cập nhật hồ sơ, lưu ghi chú Live, chấm checklist
- * - Tự động hóa 1 chạm: Chốt giai đoạn hiện tại & Mở giai đoạn tiếp theo
+ * CommandCenterApi.gs (v3.1)
+ * API nội bộ tốc độ cao cho Trung tâm Điều khiển (chỉ chạy qua google.script.run trong Google Sheets).
+ * - ccLoadSnapshot(): Đọc mỗi tab ĐÚNG 1 LẦN (4 lượt đọc Sheet khi cache nóng), nhúng thẳng vào HTML khi mở
+ *   để mở màn hình tức thì, chuyển khách/chuyển giai đoạn 0ms và Copy 1-click tức thì trên trình duyệt.
+ * - Các hàm ghi trả về bản ghi đã cập nhật để UI đồng bộ ngay tại chỗ không cần tải lại toàn bộ Sheet.
  */
 
-function ccBootstrap() {
-  var bundle = getStaticBundle_();
-  var rawClients = readTabAsObjects_(TABS.CLIENTS).map(normalizeClient_);
-  var allResponses = readTabAsObjects_(TABS.RESPONSES);
-  var allReviews = readTabAsObjects_(TABS.STAGE_REVIEWS);
+var CC_CONFIG_KEYS = [
+  'zalo_invite_template',
+  'zalo_next_stage_template',
+  'prompt_preread_s1', 'prompt_eval_s1',
+  'prompt_preread_s2', 'prompt_eval_s2',
+  'prompt_preread_s3', 'prompt_eval_s3',
+  'prompt_preread_s4', 'prompt_eval_s4'
+];
 
-  // Lập chỉ mục Responses & StageReviews theo client_id để tính tiến độ cực nhanh (O(n))
+function serializeClientForUi_(c, baseUrl) {
+  return {
+    client_id: c.client_id,
+    token: c.token,
+    name: c.name,
+    field: c.field,
+    template: c.template,
+    include: c.include,
+    exclude: c.exclude,
+    branch: c.branch,
+    stages_open: c.stages_open,
+    stages_locked: c.stages_locked,
+    show_probes: c.show_probes,
+    intro: c.intro,
+    deadline: c.deadline,
+    status: c.status,
+    consent_at: c.consent_at,
+    created_at: c.created_at,
+    link: buildClientLink_(c.token, baseUrl)
+  };
+}
+
+/**
+ * Tải toàn bộ dữ liệu Command Center trong ĐÚNG 1 LƯỢT ĐỌC duy nhất (nhúng thẳng vào HTML khi mở).
+ */
+function ccLoadSnapshot() {
+  var snap = readWorkbookSnapshot_();
+  var bundle = snap.bundle;
+
+  var configSubset = {};
+  CC_CONFIG_KEYS.forEach(function (k) {
+    if (bundle.config[k] !== undefined) configSubset[k] = bundle.config[k];
+  });
+
+  var responsesByClient = {};
+  snap.responses.forEach(function (r) {
+    var cid = String(r.client_id || '').trim();
+    var code = String(r.code || '').trim();
+    if (!cid || !code) return;
+    if (!responsesByClient[cid]) responsesByClient[cid] = [];
+    responsesByClient[cid].push({
+      round: String(r.round || DEFAULT_ROUND).trim() || DEFAULT_ROUND,
+      stage: parseInt(r.stage, 10) || 1,
+      code: code,
+      answer: String(r.answer || ''),
+      answer_extra: String(r.answer_extra || ''),
+      input_mode: String(r.input_mode || 'go'),
+      word_count: parseInt(r.word_count, 10) || 0,
+      flags: parsePipeList_(r.flags),
+      matched_vague: parsePipeList_(r.matched_vague),
+      updated_at: String(r.updated_at || '')
+    });
+  });
+
+  var notesByClient = {};
+  snap.liveNotes.forEach(function (n) {
+    var cid = String(n.client_id || '').trim();
+    if (!cid) return;
+    if (!notesByClient[cid]) notesByClient[cid] = [];
+    notesByClient[cid].push({
+      round: String(n.round || DEFAULT_ROUND).trim() || DEFAULT_ROUND,
+      stage: parseInt(n.stage, 10) || 1,
+      code: String(n.code || 'RAW').trim() || 'RAW',
+      tag: String(n.tag || 'RAW').trim().toUpperCase() || 'RAW',
+      note: String(n.note || ''),
+      created_at: String(n.created_at || '')
+    });
+  });
+
+  var reviewsByClient = {};
+  snap.stageReviews.forEach(function (sr) {
+    var cid = String(sr.client_id || '').trim();
+    if (!cid) return;
+    if (!reviewsByClient[cid]) reviewsByClient[cid] = [];
+    reviewsByClient[cid].push({
+      round: String(sr.round || DEFAULT_ROUND).trim() || DEFAULT_ROUND,
+      stage: parseInt(sr.stage, 10) || 1,
+      submitted_at: String(sr.submitted_at || '').trim(),
+      check_1: toBool_(sr.check_1),
+      check_2: toBool_(sr.check_2),
+      check_3: toBool_(sr.check_3),
+      check_4: toBool_(sr.check_4),
+      review_note: String(sr.review_note || ''),
+      approved_summary: String(sr.approved_summary || '')
+    });
+  });
+
+  var clients = snap.clients.map(function (c) {
+    return serializeClientForUi_(c, snap.baseUrl);
+  });
+
+  var activeQuestions = bundle.questions.filter(function (q) { return q.active; });
+
+  return {
+    baseUrl: snap.baseUrl,
+    clients: clients,
+    questions: activeQuestions,
+    templates: bundle.templates,
+    config: configSubset,
+    responsesByClient: responsesByClient,
+    notesByClient: notesByClient,
+    reviewsByClient: reviewsByClient,
+    checklistLabels: STAGE_CHECKLIST_LABELS,
+    loadedAt: nowIso_()
+  };
+}
+
+/**
+ * Tương thích ngược & dùng cho kiểm thử: đọc 1 lượt duy nhất qua readWorkbookSnapshot_().
+ */
+function ccBootstrap() {
+  var snap = readWorkbookSnapshot_();
+  var bundle = snap.bundle;
+
   var respByClient = {};
-  allResponses.forEach(function (r) {
+  snap.responses.forEach(function (r) {
     var cid = String(r.client_id || '').trim();
     if (!cid) return;
     if (!respByClient[cid]) respByClient[cid] = [];
@@ -24,7 +138,7 @@ function ccBootstrap() {
   });
 
   var revByClient = {};
-  allReviews.forEach(function (sr) {
+  snap.stageReviews.forEach(function (sr) {
     var cid = String(sr.client_id || '').trim();
     if (!cid) return;
     if (!revByClient[cid]) revByClient[cid] = {};
@@ -34,7 +148,7 @@ function ccBootstrap() {
     }
   });
 
-  var clients = rawClients.map(function (c) {
+  var clients = snap.clients.map(function (c) {
     var unlocked = c.stages_open.filter(function (s) { return c.stages_locked.indexOf(s) === -1; });
     var activeStage = unlocked.length > 0
       ? Math.max.apply(null, unlocked)
@@ -83,11 +197,10 @@ function ccBootstrap() {
       submitted_stages: submittedMap,
       badge: badge,
       latest_update: latestUpdate,
-      link: buildClientLink_(c.token)
+      link: buildClientLink_(c.token, snap.baseUrl)
     };
   });
 
-  // Ưu tiên đưa khách mới nộp hoặc đang làm lên trên, khách đóng xuống cuối
   var priority = { submitted: 0, in_progress: 1, not_started: 2, closed: 3 };
   clients.sort(function (a, b) {
     if (priority[a.badge] !== priority[b.badge]) return priority[a.badge] - priority[b.badge];
@@ -98,7 +211,7 @@ function ccBootstrap() {
   var templates = Object.keys(bundle.templates).map(function (id) { return bundle.templates[id]; });
 
   return {
-    baseUrl: getClientAppBaseUrl_(),
+    baseUrl: snap.baseUrl,
     clients: clients,
     templates: templates,
     checklistLabels: STAGE_CHECKLIST_LABELS
@@ -106,13 +219,14 @@ function ccBootstrap() {
 }
 
 /**
- * Tải trọn gói Workspace cho 1 khách + 1 giai đoạn, dựng sẵn toàn bộ 4 gói 1-Click Copy (0ms).
+ * Tải trọn gói Workspace 1 khách trong ĐÚNG 1 LƯỢT ĐỌC (dùng chung snapshot & ctx cho cả 4 bản xuất).
  */
 function ccGetClientWorkspace(clientId, stage, round, anonymize) {
   var stageNum = parseInt(stage, 10) || 1;
   var roundStr = String(round || DEFAULT_ROUND).trim() || DEFAULT_ROUND;
   var anon = Boolean(anonymize);
-  var ctx = collectClientStageData_(clientId, stageNum, roundStr);
+  var snap = readWorkbookSnapshot_();
+  var ctx = collectClientStageData_(clientId, stageNum, roundStr, snap);
   var client = ctx.client;
 
   var groups = ctx.outputOrder.map(function (outName) {
@@ -191,7 +305,7 @@ function ccGetClientWorkspace(clientId, stage, round, anonymize) {
       deadline: client.deadline,
       status: client.status,
       consent_at: client.consent_at,
-      link: buildClientLink_(client.token)
+      link: buildClientLink_(client.token, snap.baseUrl)
     },
     stage: stageNum,
     round: roundStr,
@@ -207,14 +321,13 @@ function ccGetClientWorkspace(clientId, stage, round, anonymize) {
     liveNotes: notesList,
     review: review,
     checklistLabels: STAGE_CHECKLIST_LABELS[stageNum] || STAGE_CHECKLIST_LABELS[2],
-    // Dựng sẵn toàn bộ nội dung Copy -> 0ms khi bấm 1 nút trên UI!
     preloadedCopy: {
-      cleanAnswers: buildCleanAnswersText_(client.client_id, stageNum, roundStr, { anonymize: anon }),
-      allStagesAnswers: buildAllStagesAnswersText_(client.client_id, roundStr, { anonymize: anon }),
-      prereadLlm: buildPrereadMarkdown_(client.client_id, stageNum, roundStr, { anonymize: anon }),
-      evalLlm: buildEvalMarkdown_(client.client_id, stageNum, roundStr, { anonymize: anon }),
-      zaloInvite: buildZaloMessage_(client, 'invite', nextStage, ctx.bundle.config),
-      zaloNextStage: buildZaloMessage_(client, 'next_stage', nextStage, ctx.bundle.config)
+      cleanAnswers: buildCleanAnswersText_(client.client_id, stageNum, roundStr, { anonymize: anon, ctx: ctx }),
+      allStagesAnswers: buildAllStagesAnswersText_(client.client_id, roundStr, { anonymize: anon, snapshot: snap }),
+      prereadLlm: buildPrereadMarkdown_(client.client_id, stageNum, roundStr, { anonymize: anon, ctx: ctx }),
+      evalLlm: buildEvalMarkdown_(client.client_id, stageNum, roundStr, { anonymize: anon, ctx: ctx }),
+      zaloInvite: buildZaloMessage_(client, 'invite', nextStage, ctx.bundle.config, snap.baseUrl),
+      zaloNextStage: buildZaloMessage_(client, 'next_stage', nextStage, ctx.bundle.config, snap.baseUrl)
     }
   };
 }
@@ -243,47 +356,50 @@ function ccCreateClient(input) {
   var tpl = bundle.templates[templateId];
   if (!tpl) throw new Error('Template không tồn tại: ' + templateId);
 
-  var clientId = generateNextClientId_();
+  var baseUrl = getClientAppBaseUrl_();
   var token = generateSecureToken_(24);
   var defaultIntro = String((input && input.intro) || '').trim() ||
     'Chào anh/chị, đây là bảng chuẩn bị dữ kiện trước buổi làm việc xây dựng thương hiệu cá nhân trong lĩnh vực {field}. Anh/chị có thể gõ hoặc dùng micro trên bàn phím điện thoại để trả lời tự nhiên nhất.';
 
-  var record = {
-    client_id: clientId,
-    token: token,
-    name: name,
-    field: field,
-    template: templateId,
-    include: '',
-    exclude: '',
-    branch: tpl.default_branch || '',
-    stages_open: String((input && input.stages_open) || '1').trim(),
-    stages_locked: '',
-    show_probes: false,
-    intro: defaultIntro,
-    deadline: String((input && input.deadline) || '').trim(),
-    status: 'active',
-    consent_at: '',
-    consent_version: '',
-    created_at: nowIso_()
-  };
-
+  var record;
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
+    var clientId = generateNextClientId_();
+    record = {
+      client_id: clientId,
+      token: token,
+      name: name,
+      field: field,
+      template: templateId,
+      include: '',
+      exclude: '',
+      branch: tpl.default_branch || '',
+      stages_open: String((input && input.stages_open) || '1').trim(),
+      stages_locked: '',
+      show_probes: false,
+      intro: defaultIntro,
+      deadline: String((input && input.deadline) || '').trim(),
+      status: 'active',
+      consent_at: '',
+      consent_version: '',
+      created_at: nowIso_()
+    };
     appendRowByHeader_(TABS.CLIENTS, record);
   } finally {
     lock.releaseLock();
   }
 
   var normalized = normalizeClient_(record);
+  var uiClient = serializeClientForUi_(normalized, baseUrl);
   return {
-    client_id: clientId,
+    client_id: normalized.client_id,
     token: token,
     branch: record.branch,
-    link: buildClientLink_(token),
-    hasBaseUrl: Boolean(getClientAppBaseUrl_()),
-    zaloInvite: buildZaloMessage_(normalized, 'invite', 2, bundle.config)
+    link: uiClient.link,
+    hasBaseUrl: Boolean(baseUrl),
+    zaloInvite: buildZaloMessage_(normalized, 'invite', 2, bundle.config, baseUrl),
+    client: uiClient
   };
 }
 
@@ -325,7 +441,12 @@ function ccUpdateClient(input) {
     lock.releaseLock();
   }
 
-  return { ok: true, client_id: clientId };
+  var updated = findClientById_(clientId);
+  return {
+    ok: true,
+    client_id: clientId,
+    client: updated ? serializeClientForUi_(updated, getClientAppBaseUrl_()) : null
+  };
 }
 
 function ccSaveLiveNotes(input) {
@@ -384,7 +505,19 @@ function ccSaveLiveNotes(input) {
     lock.releaseLock();
   }
 
-  return { added: rowsToAdd.length };
+  return {
+    added: rowsToAdd.length,
+    notes: rowsToAdd.map(function (n) {
+      return {
+        round: n.round,
+        stage: n.stage,
+        code: n.code,
+        tag: n.tag,
+        note: n.note,
+        created_at: n.created_at
+      };
+    })
+  };
 }
 
 function ccSaveStageReview(input) {
@@ -417,16 +550,9 @@ function ccSaveStageReview(input) {
     lock.releaseLock();
   }
 
-  return { ok: true };
+  return { ok: true, review: record };
 }
 
-/**
- * TỰ ĐỘNG HÓA 1 CHẠM: Chốt giai đoạn hiện tại & Mở giai đoạn tiếp theo
- * - Lưu 4 mục checklist + nhận xét + approved_summary vào StageReviews
- * - Khóa giai đoạn hiện tại (stages_locked) thành chỉ đọc
- * - Mở giai đoạn tiếp theo (stages_open) ngay trên cùng link cũ
- * - Trả về mẫu tin nhắn Zalo sẵn sàng copy 1-click để gửi khách
- */
 function ccCompleteAndOpenNextStage(input) {
   var clientId = String((input && input.client_id) || '').trim();
   var stageNum = parseInt(input && input.stage, 10) || 1;
@@ -477,12 +603,14 @@ function ccCompleteAndOpenNextStage(input) {
   }
 
   var bundle = getStaticBundle_();
+  var baseUrl = getClientAppBaseUrl_();
   return {
     ok: true,
     locked_stage: stageNum,
     opened_stage: stageNum < 4 ? nextStage : null,
     stages_open: newOpen,
     stages_locked: newLocked,
-    zaloNextStage: buildZaloMessage_(client, 'next_stage', nextStage, bundle.config)
+    review: reviewRecord,
+    zaloNextStage: buildZaloMessage_(client, 'next_stage', nextStage, bundle.config, baseUrl)
   };
 }

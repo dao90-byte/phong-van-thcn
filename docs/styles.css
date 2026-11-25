@@ -59,40 +59,6 @@ html, body {
   justify-content: space-between;
 }
 
-.demo-banner {
-  background: #1c1917;
-  color: #faf9f6;
-  font-size: 13px;
-  padding: 8px 16px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
-.demo-controls {
-  display: flex;
-  gap: 6px;
-}
-
-.demo-pill {
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: transparent;
-  color: #e7e5e4;
-  font-family: inherit;
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-.demo-pill.active {
-  background: #faf9f6;
-  color: #1c1917;
-  font-weight: 600;
-}
-
 /* ==================== HEADER ==================== */
 .app-header {
   position: sticky;

@@ -29,6 +29,7 @@
       _formats: formats,
       _tabColor: null,
       _condRules: condRules,
+      _readCount: 0,
       getName: function () { return name; },
       setName: function (newName) {
         var oldName = name;
@@ -85,6 +86,7 @@
           getSheet: function () { return sheet; },
           getRow: function () { return row; },
           getValues: function () {
+            sheet._readCount++;
             ensureSize(row + nr - 1, col + nc - 1);
             var out = [];
             for (var r = 0; r < nr; r++) {
@@ -199,12 +201,39 @@
             var m = {
               addItem: function () { return m; },
               addSeparator: function () { return m; },
+              addSubMenu: function () { return m; },
               addToUi: function () {}
             };
             return m;
           },
           alert: function () {},
-          showModalDialog: function () {}
+          showModalDialog: function (html, title) {
+            lastDialog = { html: html, title: title };
+          }
+        };
+      }
+    };
+
+    var lastDialog = null;
+    global.HtmlService = {
+      createTemplateFromFile: function (fileName) {
+        var tpl = {
+          _fileName: fileName,
+          evaluate: function () {
+            return {
+              _tpl: tpl,
+              setWidth: function (w) { this._w = w; return this; },
+              setHeight: function (h) { this._h = h; return this; }
+            };
+          }
+        };
+        return tpl;
+      },
+      createHtmlOutputFromFile: function (fileName) {
+        return {
+          _fileName: fileName,
+          setWidth: function (w) { this._w = w; return this; },
+          setHeight: function (h) { this._h = h; return this; }
         };
       }
     };
@@ -389,7 +418,14 @@
       cacheStore: cacheStore,
       propsStore: propsStore,
       driveFolders: driveFolders,
-      sentEmails: sentEmails
+      sentEmails: sentEmails,
+      getLastDialog: function () { return lastDialog; },
+      resetReadCounts: function () {
+        Object.keys(sheets).forEach(function (k) { sheets[k]._readCount = 0; });
+      },
+      getTotalReads: function () {
+        return Object.keys(sheets).reduce(function (acc, k) { return acc + sheets[k]._readCount; }, 0);
+      }
     };
   }
 

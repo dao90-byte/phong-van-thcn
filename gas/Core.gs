@@ -243,7 +243,6 @@ function upsertRowByHeader_(sheetName, recordObj, matchFn) {
   var plainCols = PLAIN_TEXT_COLUMNS[sheetName] || [];
   if (targetRowIndex > 0) {
     var updateRange = sheet.getRange(targetRowIndex, 1, 1, headers.length);
-    applyPlainTextToRowRange_(updateRange, headers, plainCols);
     updateRange.setValues([rowToWrite]);
     SpreadsheetApp.flush();
     return { action: 'updated', rowIndex: targetRowIndex };
@@ -269,9 +268,8 @@ function applyPlainTextToRowRange_(rowRange, headers, plainCols) {
   }
   if (colIndices.length === 0) return;
 
-  // Thử gộp 1 lần + flush trong try để bắt lỗi typed column ngay lập tức (tránh lỗi bị dồn sang lần đọc/ghi kế tiếp)
+  // Gộp 1 lần + flush trong try để bắt lỗi typed column ngay tại chỗ (tránh lỗi bị dồn sang lần đọc/ghi kế tiếp)
   try {
-    SpreadsheetApp.flush();
     for (var i = 0; i < colIndices.length; i++) {
       sheet.getRange(rowNum, colIndices[i]).setNumberFormat('@');
     }
@@ -519,7 +517,50 @@ function getClientAppBaseUrl_() {
   return PropertiesService.getScriptProperties().getProperty(PROP_KEYS.WEB_APP_URL) || '';
 }
 
-function buildClientLink_(token) {
-  var baseUrl = getClientAppBaseUrl_();
+function buildClientLink_(token, preloadedBaseUrl) {
+  var baseUrl = (preloadedBaseUrl !== undefined && preloadedBaseUrl !== null)
+    ? String(preloadedBaseUrl)
+    : getClientAppBaseUrl_();
   return baseUrl ? (baseUrl + '#k=' + token) : ('#k=' + token);
+}
+
+/**
+ * Đọc trọn bộ dữ liệu vận hành trong ĐÚNG 1 LƯỢT DUY NHẤT (1 lần/tab) để tránh lặp RPC Google Sheets.
+ * - Questions/Templates/Config lấy từ CacheService (0 lượt đọc Sheet khi cache nóng)
+ * - Clients/Responses/LiveNotes/StageReviews đọc đúng 1 lần mỗi tab.
+ */
+function readWorkbookSnapshot_() {
+  var bundle = getStaticBundle_();
+  var baseUrl = getClientAppBaseUrl_();
+  var clients = readTabAsObjects_(TABS.CLIENTS).map(normalizeClient_);
+  var responses = readTabAsObjects_(TABS.RESPONSES);
+  var liveNotes = readTabAsObjects_(TABS.LIVE_NOTES);
+  var stageReviews = readTabAsObjects_(TABS.STAGE_REVIEWS);
+
+  var clientMap = {};
+  clients.forEach(function (c) {
+    if (c.client_id) clientMap[c.client_id] = c;
+  });
+
+  return {
+    bundle: bundle,
+    baseUrl: baseUrl,
+    clients: clients,
+    clientMap: clientMap,
+    responses: responses,
+    liveNotes: liveNotes,
+    stageReviews: stageReviews
+  };
+}
+
+/**
+ * Chuyển đối tượng thành chuỗi JSON an toàn để nhúng trực tiếp vào thẻ <script type="application/json">.
+ */
+function safeJsonForHtml_(obj) {
+  return JSON.stringify(obj)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
 }

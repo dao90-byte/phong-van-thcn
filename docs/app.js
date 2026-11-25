@@ -15,8 +15,6 @@
 
   var state = {
     token: '',
-    isDemo: false,
-    demoStageMode: 1,
     session: null,
     activeStage: 1,
     currentIndex: 0,
@@ -62,17 +60,6 @@
     var parsed = Logic.extractTokenFromLocation(window.location.hash, window.location.search);
     var apiConfigured = Boolean(CFG.API_URL && String(CFG.API_URL).trim());
 
-    if (parsed.isDemo || (!parsed.token && !apiConfigured && CFG.ENABLE_DEMO)) {
-      if (!CFG.ENABLE_DEMO && apiConfigured) {
-        showError('🔒', 'Liên kết không hợp lệ', 'Anh/chị vui lòng mở đúng đường link phỏng vấn do chuyên gia gửi.');
-        return;
-      }
-      state.isDemo = true;
-      el.demoBanner.classList.remove('hidden');
-      loadDemoSession(1);
-      return;
-    }
-
     var effectiveToken = parsed.token;
     if (!effectiveToken) {
       try {
@@ -81,12 +68,12 @@
     }
 
     if (!effectiveToken) {
-      showError('🔗', 'Thiếu mã truy cập cá nhân', 'Anh/chị vui lòng mở đúng đường link riêng có dạng #k=... do chuyên gia gửi.', CFG.ENABLE_DEMO);
+      showError('🔗', 'Thiếu mã truy cập cá nhân', 'Anh/chị vui lòng mở đúng đường link riêng có dạng #k=... do chuyên gia gửi.');
       return;
     }
 
     if (!apiConfigured) {
-      showError('⚙️', 'Chưa cấu hình API_URL', 'Chuyên gia chưa dán đường dẫn Google Apps Script Web App vào file docs/config.js.', CFG.ENABLE_DEMO);
+      showError('⚙️', 'Chưa cấu hình API_URL', 'Chuyên gia chưa dán đường dẫn Google Apps Script Web App vào file docs/config.js.');
       return;
     }
 
@@ -105,9 +92,8 @@
   function cacheDom() {
     [
       'inAppBanner', 'inAppName', 'dismissInAppBtn',
-      'demoBanner', 'demoStage1Btn', 'demoStage2Btn',
       'appHeader', 'brandTitle', 'syncBadge', 'drawerTrigger', 'progressPillText', 'progressBarFill',
-      'viewLoading', 'viewError', 'errorIcon', 'errorTitle', 'errorMessage', 'tryDemoBtn',
+      'viewLoading', 'viewError', 'errorIcon', 'errorTitle', 'errorMessage',
       'viewWelcome', 'welcomeGreeting', 'welcomeIntro',
       'welcomeCount', 'welcomeDuration', 'welcomeDeadlineBox', 'welcomeDeadline',
       'consentCheckbox', 'consentText', 'startBtn',
@@ -117,7 +103,7 @@
       'evidenceBox', 'evidenceReason', 'extraInput', 'extraVoiceBtn', 'extraVoiceBtnLabel', 'extraMobileMicTip',
       'skipEvidenceBtn', 'saveEvidenceBtn',
       'savedExtraWrap', 'savedExtraInput', 'savedExtraToolbar', 'savedExtraVoiceBtn', 'savedExtraVoiceBtnLabel',
-      'prevBtn', 'skipBtn', 'saveDraftBtn', 'nextBtn',
+      'prevBtn', 'skipBtn', 'nextBtn',
       'viewBranch', 'branchABtn', 'branchBBtn',
       'viewReview', 'reviewEyebrow', 'reviewTitle', 'reviewSub', 'reviewList', 'backFromReviewBtn', 'submitStageBtn',
       'viewDone', 'doneMessage', 'doneTimestamp', 'reopenReviewBtn',
@@ -127,22 +113,6 @@
 
   function bindEvents() {
     el.dismissInAppBtn.addEventListener('click', function () { el.inAppBanner.classList.add('hidden'); });
-    el.tryDemoBtn.addEventListener('click', function () {
-      state.isDemo = true;
-      el.demoBanner.classList.remove('hidden');
-      loadDemoSession(1);
-    });
-
-    el.demoStage1Btn.addEventListener('click', function () {
-      el.demoStage1Btn.classList.add('active');
-      el.demoStage2Btn.classList.remove('active');
-      loadDemoSession(1);
-    });
-    el.demoStage2Btn.addEventListener('click', function () {
-      el.demoStage2Btn.classList.add('active');
-      el.demoStage1Btn.classList.remove('active');
-      loadDemoSession(2);
-    });
 
     el.consentCheckbox.addEventListener('change', function () {
       el.startBtn.disabled = !el.consentCheckbox.checked;
@@ -164,7 +134,6 @@
 
     el.prevBtn.addEventListener('click', onPrevQuestion);
     el.skipBtn.addEventListener('click', onSkipQuestion);
-    el.saveDraftBtn.addEventListener('click', function () { persistCurrentAnswer({ forceServer: true }); });
     el.nextBtn.addEventListener('click', onNextQuestion);
 
     el.skipEvidenceBtn.addEventListener('click', onSkipEvidence);
@@ -197,9 +166,6 @@
   // ==================== NETWORK / API LAYER ====================
 
   function callApi(action, payload) {
-    if (state.isDemo) {
-      return handleDemoApi(action, payload);
-    }
     return fetch(CFG.API_URL, {
       method: 'POST',
       redirect: 'follow',
@@ -399,7 +365,6 @@
     if (q.locked) {
       el.lockedNotice.classList.remove('hidden');
       el.skipBtn.classList.add('hidden');
-      el.saveDraftBtn.classList.add('hidden');
       el.voiceBtn.classList.add('hidden');
       el.mobileMicTip.classList.add('hidden');
       el.prevBtn.textContent = state.returnToReviewMode ? '← Về trang xem lại' : '← Câu trước';
@@ -408,7 +373,6 @@
     } else {
       el.lockedNotice.classList.add('hidden');
       el.skipBtn.classList.remove('hidden');
-      el.saveDraftBtn.classList.remove('hidden');
       el.mobileMicTip.classList.remove('hidden');
       if (state.speechSupported) {
         el.voiceBtn.classList.remove('hidden');
@@ -554,7 +518,7 @@
       return Promise.resolve();
     }
 
-    if (!navigator.onLine && !state.isDemo) {
+    if (!navigator.onLine) {
       queueOfflineSave(record);
       return Promise.resolve();
     }
@@ -1027,7 +991,7 @@
   }
 
   function flushPendingQueue() {
-    if (state.isFlushing || !state.pendingQueue.length || (!navigator.onLine && !state.isDemo)) {
+    if (state.isFlushing || !state.pendingQueue.length || !navigator.onLine) {
       return Promise.resolve();
     }
     state.isFlushing = true;
@@ -1068,12 +1032,11 @@
     });
   }
 
-  function showError(icon, title, message, showDemoCta) {
+  function showError(icon, title, message) {
     el.appHeader.classList.add('hidden');
     el.errorIcon.textContent = icon;
     el.errorTitle.textContent = title;
     el.errorMessage.textContent = message;
-    el.tryDemoBtn.classList.toggle('hidden', !showDemoCta);
     showOnly('viewError');
   }
 
@@ -1091,108 +1054,6 @@
     } catch (e) {
       return iso || '';
     }
-  }
-
-  // ==================== BUILT-IN DEMO MODE ====================
-
-  var demoStore = {
-    branch: '',
-    consented: false,
-    responses: {
-      '1.1.5': { code: '1.1.5', stage: 1, answer: 'Khoảng 4 giờ/tuần vào sáng thứ 7. Hiện có 1 trợ lý thiết kế hình ảnh bán thời gian.', answer_extra: '', input_mode: 'go', flags: [], matched_vague: [], updated_at: '2026-11-23T08:00:00.000Z' },
-      '1.4.1': { code: '1.4.1', stage: 1, answer: 'https://facebook.com/dr.minhanh\nhttps://linkedin.com/in/minhanh-dental', answer_extra: '', input_mode: 'go', flags: [], matched_vague: [], updated_at: '2026-11-23T08:05:00.000Z' }
-    }
-  };
-
-  function buildDemoSessionData(stageMode) {
-    var s1Questions = [
-      { code: '1.1.2', stage: 1, group: '1.1', order: 2, mode: 'hybrid', branch: '', output: 'Bản đồ hiện trạng & rào cản', question_self: 'Nếu trong 12 tháng tới anh/chị vẫn giữ nguyên cách làm hiện tại (chưa xây thương hiệu cá nhân trong lĩnh vực Nha khoa thẩm mỹ), công việc hoặc doanh nghiệp của anh/chị có thể bỏ lỡ những cơ hội cụ thể nào?', self_hint: 'Anh/chị hãy ước lượng cụ thể bằng con số: khoảng doanh thu bị bỏ lỡ, số lượng khách hàng mới/tháng hoặc cơ hội hợp tác.', probes: [], min_words: 20, check_vague: true, locked: stageMode === 2 },
-      { code: '1.1.3', stage: 1, group: '1.1', order: 3, mode: 'hybrid', branch: '', output: 'Bản đồ hiện trạng & rào cản', question_self: 'Sau 6–12 tháng tới, kết quả cụ thể nào sẽ khiến anh/chị khẳng định việc đầu tư xây dựng thương hiệu cá nhân lần này là thành công?', self_hint: 'Nêu con số mục tiêu rõ ràng. Buổi gặp trực tiếp ta sẽ chốt 1 ưu tiên số 1.', probes: [], min_words: 15, check_vague: true, locked: stageMode === 2 },
-      { code: '1.1.4', stage: 1, group: '1.1', order: 4, mode: 'hybrid', branch: '', output: 'Bản đồ hiện trạng & rào cản', question_self: 'Có ranh giới, chủ đề đời tư hoặc kiểu xuất hiện nào anh/chị tuyệt đối KHÔNG muốn đánh đổi để đổi lấy tương tác hay sự nổi tiếng?', self_hint: 'Ví dụ: không lộ mặt gia đình, không tranh luận drama ngành, bảo mật tên khách hàng.', probes: [], min_words: 15, check_vague: false, locked: stageMode === 2 },
-      { code: '1.1.5', stage: 1, group: '1.1', order: 5, mode: 'self', branch: '', output: 'Bản đồ hiện trạng & rào cản', question_self: 'Mỗi tuần (tính cả tuần bận nhất 3 tháng qua), anh/chị có thể dành chắc chắn bao nhiêu giờ cho việc chia sẻ chất liệu/ghi hình, và hiện có ai hỗ trợ?', self_hint: 'Trả lời sát lịch thực tế, không cần viết dài.', probes: [], min_words: 8, check_vague: false, locked: stageMode === 2 },
-      { code: '1.2.2', stage: 1, group: '1.2', order: 7, mode: 'self', branch: '', output: 'Hồ sơ năng lực', question_self: 'Khi người quen, khách hàng hoặc đồng nghiệp gặp rắc rối, họ hay tìm đến anh/chị để nhờ gỡ rối việc gì nhất? Anh/chị hãy trích dẫn 1–2 tin nhắn gần nhất.', self_hint: 'Mẹo hay nhất: mở Zalo/Messenger, copy-paste nguyên văn 1–2 câu hỏi gần đây người khác nhắn nhờ anh/chị.', probes: [], min_words: 15, check_vague: false, locked: stageMode === 2 },
-      { code: '1.3.1', stage: 1, group: '1.3', order: 10, mode: 'self', branch: '', output: 'Kho bằng chứng thô', question_self: 'Liệt kê 3–5 kết quả đo lường được rõ nhất mà anh/chị đã tạo ra cho bản thân, tổ chức hoặc khách hàng trong lĩnh vực Nha khoa thẩm mỹ.', self_hint: 'Nêu rõ số Trước -> Sau (%, doanh thu, tỷ lệ hài lòng...).', probes: [], min_words: 15, check_vague: true, locked: stageMode === 2 },
-      { code: '1.3.2', stage: 1, group: '1.3', order: 11, mode: 'hybrid', branch: '', output: 'Kho bằng chứng thô', question_self: 'Anh/chị hãy tóm tắt 2–3 ca khách hàng tiêu biểu nhất theo mạch: 1) Bế tắc ban đầu -> 2) Giải pháp của anh/chị -> 3) Thay đổi sau đó.', self_hint: 'Chỉ cần gạch đầu dòng rõ tình huống thật (có thể ẩn tên khách).', probes: [], min_words: 40, check_vague: true, locked: stageMode === 2 },
-      { code: '1.3.3', stage: 1, group: '1.3', order: 12, mode: 'self', branch: '', output: 'Kho bằng chứng thô', question_self: 'Kiểm kê các bằng chứng xã hội anh/chị đang có (bài báo, giải thưởng, diễn giả, nhận xét công khai, người giới thiệu uy tín).', self_hint: 'Gạch đầu dòng kèm link nếu có.', probes: [], min_words: 10, check_vague: false, locked: stageMode === 2 },
-      { code: '1.4.1', stage: 1, group: '1.4', order: 13, mode: 'self', branch: '', output: 'Bản đồ hiện trạng & rào cản', question_self: 'Anh/chị hãy dán đường link các trang cá nhân / kênh công việc đang dùng (Facebook, LinkedIn, TikTok, Website...) để chuyên gia chạy bài Test 5 giây.', self_hint: 'Mỗi link 1 dòng (không cần giải thích dài).', probes: [], min_words: 0, check_vague: false, locked: stageMode === 2 }
-    ];
-
-    var s2Common = [
-      { code: '2.1.1', stage: 2, group: '2.1', order: 16, mode: 'hybrid', branch: '', output: 'Chân dung khách hàng', question_self: 'Anh/chị hãy chọn trước 1–2 nhóm khách hàng muốn ưu tiên phục vụ nhất (vừa có nỗi đau cấp bách, vừa sẵn sàng chi trả).', self_hint: 'Mô tả cụ thể vai trò/ngành/quy mô. Các câu 2.1.2 và 2.1.3 sẽ xoay quanh nhóm này.', probes: [], min_words: 15, check_vague: true, locked: false },
-      { code: '2.1.2', stage: 2, group: '2.1', order: 17, mode: 'self', branch: '', output: 'Chân dung khách hàng', question_self: 'Với nhóm khách anh/chị vừa nêu ở 2.1.1: họ ở hoàn cảnh nào khi đi tìm giải pháp và câu hỏi nghi ngờ đầu tiên họ hay đặt ra là gì?', self_hint: 'Kể trải nghiệm mất tiền oan trước đây của họ hoặc dán câu hỏi khách hay thắc mắc.', probes: [], min_words: 20, check_vague: true, locked: false },
-      { code: '2.1.3', stage: 2, group: '2.1', order: 18, mode: 'self', branch: '', output: 'Chân dung khách hàng', question_self: 'Nhóm khách ở 2.1.1 thường tìm thông tin ở đâu (tên cụ thể các group Facebook, kênh YouTube, podcast, báo ngành, người ảnh hưởng)?', self_hint: 'Ghi càng cụ thể tên kênh/group càng tốt.', probes: [], min_words: 10, check_vague: false, locked: false },
-      { code: '2.2.1', stage: 2, group: '2.2', order: 19, mode: 'hybrid', branch: '', output: 'Tuyên bố định vị', question_self: 'Anh/chị hãy liệt kê tên 3 đối thủ nổi bật nhất cùng tệp khách, và nêu điểm khác biệt trong quy trình/cách làm của anh/chị (không tính giá rẻ).', self_hint: 'Ghi tên 3 đối thủ + 1–2 điểm khác biệt cốt lõi.', probes: [], min_words: 25, check_vague: true, locked: false },
-      { code: '2.2.2', stage: 2, group: '2.2', order: 20, mode: 'self', branch: '', output: 'Tuyên bố định vị', question_self: 'Trong ngành Nha khoa thẩm mỹ, kiểu làm thương hiệu cá nhân nào khiến anh/chị phản cảm nhất và anh/chị tuyệt đối không muốn bị gắn mác nào?', self_hint: 'Anh/chị cứ nói thẳng quan điểm thật của mình.', probes: [], min_words: 15, check_vague: false, locked: false }
-    ];
-
-    var s2BranchA = [
-      { code: '2.3.1A', stage: 2, group: '2.3', order: 22, mode: 'self', branch: 'A', output: 'Cấu trúc sản phẩm & phễu chuyển đổi', question_self: 'Anh/chị hãy liệt kê sản phẩm/dịch vụ kèm khoảng giá, biên lợi nhuận ước tính, gói dễ chốt nhất và gói không muốn đẩy mạnh nữa.', self_hint: 'Gạch đầu dòng ngắn gọn từng gói dịch vụ.', probes: [], min_words: 10, check_vague: false, locked: false },
-      { code: '2.3.2A', stage: 2, group: '2.3', order: 23, mode: 'hybrid', branch: 'A', output: 'Cấu trúc sản phẩm & phễu chuyển đổi', question_self: 'Có khoảng cách nào giữa lời hứa thương hiệu cá nhân của anh/chị và trải nghiệm thực tế của đội ngũ không?', self_hint: 'Chia sẻ thật các điểm khách hay góp ý.', probes: [], min_words: 20, check_vague: true, locked: false },
-      { code: '2.3.3A', stage: 2, group: '2.3', order: 24, mode: 'hybrid', branch: 'A', output: 'Cấu trúc sản phẩm & phễu chuyển đổi', question_self: 'Năng lực tối đa hiện tại mỗi tháng là bao nhiêu khách? Nếu tăng thêm 20–30 khách, khâu nào sẽ gãy đầu tiên?', self_hint: 'Nêu con số tối đa và khâu phụ thuộc vào anh/chị nhất.', probes: [], min_words: 20, check_vague: true, locked: false }
-    ];
-
-    var s2BranchB = [
-      { code: '2.3.2B', stage: 2, group: '2.3', order: 26, mode: 'self', branch: 'B', output: 'Cấu trúc sản phẩm & phễu chuyển đổi', question_self: 'Đã từng có ai trả tiền cho lời khuyên/sự hỗ trợ của anh/chị chưa? Nếu tuần tới mở gói thử nghiệm, anh/chị sẽ mời đích danh 5 ai đầu tiên?', self_hint: 'Liệt kê cụ thể các lần đã nhận tiền (hoặc "Chưa") và 5 người có thể mời.', probes: [], min_words: 10, check_vague: false, locked: false }
-    ];
-
-    var questions = s1Questions.slice();
-    if (stageMode === 2) {
-      questions = questions.concat(s2Common);
-      if (demoStore.branch === 'A') questions = questions.concat(s2BranchA);
-      if (demoStore.branch === 'B') questions = questions.concat(s2BranchB);
-    }
-
-    return {
-      client: {
-        client_id: 'DEMO01',
-        name: 'Minh Anh',
-        field: 'Nha khoa thẩm mỹ',
-        branch: demoStore.branch,
-        stages_open: stageMode === 2 ? [1, 2] : [1],
-        stages_locked: stageMode === 2 ? [1] : [],
-        intro: 'Chào anh/chị, đây là bảng chuẩn bị dữ kiện trước buổi làm việc xây dựng thương hiệu cá nhân trong lĩnh vực Nha khoa thẩm mỹ. Mọi câu trả lời sẽ được tự động lưu nháp để anh/chị điền dần khi rảnh.',
-        deadline: '28/11/2026',
-        has_consented: demoStore.consented
-      },
-      round: 'R1',
-      needs_branch_choice: stageMode === 2 && !demoStore.branch,
-      stage_titles: { 1: 'Phần 1', 2: 'Phần 2' },
-      questions: questions,
-      responses: Object.assign({}, demoStore.responses),
-      submitted_stages: {},
-      config: {
-        vague_words: ['rất tận tâm', 'khách rất thích', 'rất hài lòng', 'chất lượng cao', 'uy tín', 'chuyên nghiệp', 'tận tình', 'hiệu quả cao'],
-        consent_version: 'v1.0',
-        consent_text: 'Tôi đồng ý cung cấp thông tin này cho quá trình tư vấn thương hiệu cá nhân. Dữ liệu chỉ phục vụ cho dự án tư vấn của tôi.'
-      }
-    };
-  }
-
-  function loadDemoSession(stageMode) {
-    state.demoStageMode = stageMode;
-    if (stageMode === 2) demoStore.consented = true;
-    hydrateSession(buildDemoSessionData(stageMode));
-  }
-
-  function handleDemoApi(action, payload) {
-    return new Promise(function (resolve) {
-      setTimeout(function () {
-        if (action === 'saveConsent') {
-          demoStore.consented = true;
-          resolve({ consent_at: new Date().toISOString() });
-        } else if (action === 'setBranch') {
-          demoStore.branch = payload.branch;
-          resolve(buildDemoSessionData(state.demoStageMode));
-        } else if (action === 'saveAnswer') {
-          demoStore.responses[payload.code] = Object.assign({}, payload);
-          resolve({ code: payload.code, updated_at: new Date().toISOString() });
-        } else if (action === 'submitStage') {
-          resolve({ stage: payload.stage, submitted_at: new Date().toISOString() });
-        } else {
-          resolve(buildDemoSessionData(state.demoStageMode));
-        }
-      }, 180);
-    });
   }
 
   document.addEventListener('DOMContentLoaded', init);

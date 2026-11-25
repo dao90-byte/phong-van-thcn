@@ -241,6 +241,34 @@ var dashFormulaH6 = dashSheet.getRange(6, 8).getValues()[0][0];
 assert(dashFormulaA6 === '=IF(Clients!A2="";"";Clients!A2)' && dashFormulaH6.indexOf('{"charttype"\\"bar";"max"\\') !== -1,
   'Dashboard tự sinh công thức chuẩn locale vi_VN (dùng ; ngăn đối số và \\ ngăn cột mảng SPARKLINE)');
 
+// ==================== TEST 9: Hiệu năng 1-pass Snapshot & Nhúng sẵn HTML khi mở Command Center ====================
+getStaticBundle_(); // làm nóng cache trước khi đo
+env.resetReadCounts();
+var snap = ccLoadSnapshot();
+var readsForSnapshot = env.getTotalReads();
+assert(readsForSnapshot <= 4,
+  'ccLoadSnapshot đọc tối đa 4 tab (1 lượt duy nhất/tab khi cache nóng), thực tế: ' + readsForSnapshot);
+assert(snap.clients.length === 3 && snap.questions.length === 39 &&
+  snap.responsesByClient.C001.length === 2 && snap.notesByClient.C001.length === 3,
+  'ccLoadSnapshot trả đủ clients, questions, responsesByClient, notesByClient');
+
+env.resetReadCounts();
+var wsFast = ccGetClientWorkspace('C001', 2, 'R1', false);
+var readsForWs = env.getTotalReads();
+assert(readsForWs <= 4 && wsFast.preloadedCopy.allStagesAnswers.indexOf('Giai đoạn 1') !== -1,
+  'ccGetClientWorkspace (gồm cả 4 bản Copy + allStages) chỉ đọc tối đa 4 tab thay vì 25+ lượt, thực tế: ' + readsForWs);
+
+menuOpenCommandCenter();
+var dlg = env.getLastDialog();
+assert(dlg && dlg.html && dlg.html._tpl && dlg.html._tpl.initialSnapshotJson &&
+  dlg.html._tpl.initialSnapshotJson.indexOf('</script>') === -1 &&
+  JSON.parse(dlg.html._tpl.initialSnapshotJson).clients.length === 3,
+  'menuOpenCommandCenter nhúng sẵn JSON an toàn vào CommandCenter template (0ms chờ tải khi mở hộp thoại)');
+
+var safeTest = safeJsonForHtml_({ text: '</script><img src=x>' });
+assert(safeTest.indexOf('</script>') === -1 && JSON.parse(safeTest).text === '</script><img src=x>',
+  'safeJsonForHtml_ thoát thẻ HTML an toàn và giữ nguyên dữ liệu khi JSON.parse');
+
 print('\n==============================');
-print('GAS v3 TESTS: ' + passed + ' passed, ' + failed + ' failed');
-if (failed > 0) throw new Error('GAS v3 test suite failed with ' + failed + ' failures');
+print('GAS v3.1 TESTS: ' + passed + ' passed, ' + failed + ' failed');
+if (failed > 0) throw new Error('GAS v3.1 test suite failed with ' + failed + ' failures');
