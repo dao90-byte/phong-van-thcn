@@ -10,7 +10,7 @@ function doGet() {
     ok: true,
     data: {
       service: 'THCN Interview Client API',
-      version: '3.0',
+      version: '3.1',
       note: 'Sử dụng POST text/plain với JSON payload.'
     }
   });

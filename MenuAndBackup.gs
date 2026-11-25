@@ -1,6 +1,6 @@
 /**
- * MenuAndBackup.gs (v3)
- * Menu tinh gọn trên thanh công cụ Google Sheets (chỉ 1 nút chính mở Trung tâm Điều khiển)
+ * MenuAndBackup.gs (v3.1)
+ * Menu gọn gàng trong Google Sheets (1 nút chính mở Trung tâm Điều khiển, nạp sẵn dữ liệu trực tiếp vào HTML để mở tức thì)
  * + Cơ chế tự động sao lưu file Google Sheets hàng tuần vào thư mục Backup_THCN (giữ 8 bản).
  */
 
@@ -9,21 +9,32 @@ var BACKUP_KEEP_COUNT = 8;
 
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
+  var adminMenu = ui.createMenu('Quản trị hệ thống')
+    .addItem('Kiểm tra / Nâng cấp cấu trúc Sheet', 'menuRunSetup')
+    .addItem('Cài đặt URL trang khách (GitHub Pages)', 'menuSetClientAppUrl')
+    .addItem('Làm mới bộ nhớ đệm (Clear Cache)', 'menuClearCache')
+    .addItem('Bật sao lưu tự động hàng tuần', 'menuInstallBackup');
+
   ui.createMenu('⚙️ Tư vấn THCN')
     .addItem('🎛️ Mở Trung tâm Điều khiển', 'menuOpenCommandCenter')
     .addSeparator()
-    .addItem('🚀 Nâng cấp / Kiểm tra cấu trúc Sheet', 'menuRunSetup')
-    .addItem('🔗 Cài đặt URL trang khách (GitHub Pages)', 'menuSetClientAppUrl')
-    .addItem('🔄 Làm mới bộ nhớ đệm (Clear Cache)', 'menuClearCache')
-    .addItem('☁️ Bật sao lưu tự động hàng tuần', 'menuInstallBackup')
+    .addSubMenu(adminMenu)
     .addToUi();
 }
 
 function menuOpenCommandCenter() {
-  var html = HtmlService.createHtmlOutputFromFile('CommandCenter')
-    .setWidth(1180)
+  var tpl = HtmlService.createTemplateFromFile('CommandCenter');
+  var payload;
+  try {
+    payload = ccLoadSnapshot();
+  } catch (err) {
+    payload = { error: err && err.message ? err.message : String(err) };
+  }
+  tpl.initialSnapshotJson = safeJsonForHtml_(payload);
+  var html = tpl.evaluate()
+    .setWidth(1160)
     .setHeight(740);
-  SpreadsheetApp.getUi().showModalDialog(html, '🎛️ Trung tâm Điều khiển – Phỏng vấn Thương hiệu Cá nhân');
+  SpreadsheetApp.getUi().showModalDialog(html, 'Trung tâm Điều khiển – Phỏng vấn Thương hiệu Cá nhân');
 }
 
 function menuRunSetup() {
@@ -40,7 +51,7 @@ function menuRunSetup() {
 
 function menuClearCache() {
   clearStaticCache_();
-  SpreadsheetApp.getActiveSpreadsheet().toast('Đã xóa bộ nhớ đệm. Mọi chỉnh sửa trong Questions/Templates/Config có hiệu lực ngay.', '⚙️ Tư vấn THCN', 4);
+  SpreadsheetApp.getActiveSpreadsheet().toast('Đã xóa bộ nhớ đệm. Mọi chỉnh sửa trong Questions/Templates/Config có hiệu lực ngay.', 'Tư vấn THCN', 4);
 }
 
 function menuSetClientAppUrl() {
@@ -56,7 +67,7 @@ function menuSetClientAppUrl() {
     var url = String(res.getResponseText() || '').trim();
     if (url && url.slice(-1) !== '/') url += '/';
     props.setProperty(PROP_KEYS.WEB_APP_URL, url);
-    SpreadsheetApp.getActiveSpreadsheet().toast('Đã lưu URL trang khách: ' + url, '⚙️ Tư vấn THCN', 4);
+    SpreadsheetApp.getActiveSpreadsheet().toast('Đã lưu URL trang khách: ' + url, 'Tư vấn THCN', 4);
   }
 }
 

@@ -1,21 +1,23 @@
 /**
- * ExportEngine.gs (v3)
- * Động cơ xuất 1-Click với 4 định dạng khoa học:
- * 1. buildCleanAnswersText_    : Toàn bộ câu trả lời sạch của 1 giai đoạn (dán đẹp vào Notion, Word, Docs, Zalo, LLM)
- * 2. buildAllStagesAnswersText_: Tổng hợp xuyên suốt các giai đoạn đã có dữ liệu (1 nút gom cả hồ sơ)
- * 3. buildPrereadMarkdown_     : Bản đọc trước chuẩn hóa cho LLM (kèm câu live & prompt_preread)
- * 4. buildEvalMarkdown_        : Bản đánh giá chuẩn hóa cho LLM (kèm LiveNotes, RAW transcript, <tom_tat_gd_truoc>, checklist & prompt_eval)
+ * ExportEngine.gs (v3.1)
+ * Động cơ xuất 1-Click tốc độ cao (đọc Sheet tối đa 1 lượt qua snapshot/ctx dùng chung):
+ * 1. buildCleanAnswersText_    : Toàn bộ câu trả lời sạch của 1 giai đoạn (dán đẹp vào Notion, Word, Docs, Zalo, AI)
+ * 2. buildAllStagesAnswersText_: Tổng hợp xuyên suốt các giai đoạn đã mở hoặc đã có dữ liệu
+ * 3. buildPrereadMarkdown_     : Bản đọc trước chuẩn hóa cho AI (kèm câu live & prompt_preread)
+ * 4. buildEvalMarkdown_        : Bản đánh giá chuẩn hóa cho AI (kèm LiveNotes, RAW transcript, <tom_tat_gd_truoc>, checklist & prompt_eval)
  * 5. buildZaloMessage_         : Tin nhắn mẫu Zalo 1-click Copy khi mời khách mới hoặc báo mở giai đoạn mới.
  */
 
-function collectClientStageData_(clientId, stage, round) {
+function collectClientStageData_(clientId, stage, round, snapshot) {
   var stageNum = parseInt(stage, 10) || 1;
   var roundStr = String(round || DEFAULT_ROUND).trim() || DEFAULT_ROUND;
+  var snap = snapshot || readWorkbookSnapshot_();
+  var cid = String(clientId || '').trim();
 
-  var client = findClientById_(clientId);
+  var client = snap.clientMap[cid] || null;
   if (!client) throw new Error('Không tìm thấy khách hàng: ' + clientId);
 
-  var bundle = getStaticBundle_();
+  var bundle = snap.bundle;
   var resolved = resolveClientQuestions_(client, bundle, {
     includeLive: true,
     stageFilter: stageNum
@@ -23,7 +25,7 @@ function collectClientStageData_(clientId, stage, round) {
 
   var allClientResponses = {};
   var stageResponses = {};
-  readTabAsObjects_(TABS.RESPONSES).forEach(function (r) {
+  snap.responses.forEach(function (r) {
     if (String(r.client_id || '').trim() !== client.client_id) return;
     var rRound = String(r.round || DEFAULT_ROUND).trim() || DEFAULT_ROUND;
     var code = String(r.code || '').trim();
@@ -38,7 +40,7 @@ function collectClientStageData_(clientId, stage, round) {
 
   var notesByCode = {};
   var rawNotes = [];
-  readTabAsObjects_(TABS.LIVE_NOTES).forEach(function (n) {
+  snap.liveNotes.forEach(function (n) {
     if (String(n.client_id || '').trim() !== client.client_id) return;
     var nRound = String(n.round || DEFAULT_ROUND).trim() || DEFAULT_ROUND;
     if (nRound !== roundStr) return;
@@ -54,7 +56,7 @@ function collectClientStageData_(clientId, stage, round) {
 
   var currentReview = null;
   var previousReviews = [];
-  readTabAsObjects_(TABS.STAGE_REVIEWS).forEach(function (sr) {
+  snap.stageReviews.forEach(function (sr) {
     if (String(sr.client_id || '').trim() !== client.client_id) return;
     var srStage = parseInt(sr.stage, 10);
     var srRound = String(sr.round || DEFAULT_ROUND).trim() || DEFAULT_ROUND;
@@ -84,7 +86,6 @@ function collectClientStageData_(clientId, stage, round) {
     }
   });
 
-  // Gom nhóm câu hỏi theo Đầu ra cốt lõi MECE
   var outputOrder = [];
   var byOutput = {};
   resolved.questions.forEach(function (q) {
@@ -98,6 +99,7 @@ function collectClientStageData_(clientId, stage, round) {
 
   return {
     client: client,
+    baseUrl: snap.baseUrl,
     stageNum: stageNum,
     roundStr: roundStr,
     bundle: bundle,
@@ -118,14 +120,10 @@ function collectClientStageData_(clientId, stage, round) {
   };
 }
 
-/**
- * 1. ĐỊNH DẠNG CHÍNH (1-CLICK COPY): Toàn bộ câu trả lời sạch của khách hàng trong 1 giai đoạn.
- * Bố cục khoa học theo Đầu ra MECE, sạch ký tự rườm rà -> dán đẹp vào Notion, Docs, Word, Zalo, LLM.
- */
 function buildCleanAnswersText_(clientId, stage, round, options) {
   var opts = options || {};
   var anonymize = !!opts.anonymize;
-  var ctx = collectClientStageData_(clientId, stage, round);
+  var ctx = opts.ctx || collectClientStageData_(clientId, stage, round, opts.snapshot);
   var client = ctx.client;
   var displayName = anonymize ? client.client_id : (client.name + ' (' + client.client_id + ')');
   var today = new Date().toISOString().slice(0, 10);
@@ -171,7 +169,6 @@ function buildCleanAnswersText_(clientId, stage, round, options) {
     });
   });
 
-  // Nếu đã có ghi chú buổi gặp trực tiếp cho giai đoạn này, đính kèm gọn ở cuối
   var hasCodedNotes = Object.keys(ctx.notesByCode).length > 0;
   if (hasCodedNotes || ctx.rawNotes.length > 0) {
     lines.push('════════════════════════════════════════');
@@ -193,12 +190,10 @@ function buildCleanAnswersText_(clientId, stage, round, options) {
   return lines.join('\n').trim();
 }
 
-/**
- * 2. COPY XUYÊN SUỐT TẤT CẢ GIAI ĐOẠN (Full Client Dossier) chỉ bằng 1 nút bấm.
- */
 function buildAllStagesAnswersText_(clientId, round, options) {
   var opts = options || {};
-  var client = findClientById_(clientId);
+  var snap = opts.snapshot || readWorkbookSnapshot_();
+  var client = snap.clientMap[String(clientId || '').trim()] || null;
   if (!client) throw new Error('Không tìm thấy khách hàng: ' + clientId);
 
   var stagesToInclude = client.stages_open.slice();
@@ -206,18 +201,18 @@ function buildAllStagesAnswersText_(clientId, round, options) {
 
   var blocks = [];
   stagesToInclude.forEach(function (s) {
-    blocks.push(buildCleanAnswersText_(clientId, s, round, opts));
+    blocks.push(buildCleanAnswersText_(client.client_id, s, round, {
+      anonymize: !!opts.anonymize,
+      snapshot: snap
+    }));
   });
   return blocks.join('\n\n============================================================\n\n');
 }
 
-/**
- * 3 & 4. BẢN ĐỌC TRƯỚC (Pre-read) & BẢN ĐÁNH GIÁ (Eval) chuẩn hóa thẻ XML cho LLM.
- */
 function buildMarkdownExport_(clientId, stage, round, exportType, options) {
   var opts = options || {};
   var anonymize = !!opts.anonymize;
-  var ctx = collectClientStageData_(clientId, stage, round);
+  var ctx = opts.ctx || collectClientStageData_(clientId, stage, round, opts.snapshot);
   var client = ctx.client;
   var displayName = anonymize ? client.client_id : client.name + ' (' + client.client_id + ')';
   var today = new Date().toISOString().slice(0, 10);
@@ -368,12 +363,9 @@ function buildEvalMarkdown_(clientId, stage, round, options) {
   return buildMarkdownExport_(clientId, stage, round, 'eval', options);
 }
 
-/**
- * 5. Sinh mẫu tin nhắn Zalo 1-click Copy (mời lần đầu hoặc thông báo mở giai đoạn mới).
- */
-function buildZaloMessage_(client, kind, nextStage, configMap) {
+function buildZaloMessage_(client, kind, nextStage, configMap, preloadedBaseUrl) {
   var cfg = configMap || {};
-  var link = buildClientLink_(client.token);
+  var link = buildClientLink_(client.token, preloadedBaseUrl);
   var deadlineLine = client.deadline ? ('Hạn hoàn thành dự kiến: ' + client.deadline + '.\n') : '';
 
   var tpl = kind === 'next_stage'
