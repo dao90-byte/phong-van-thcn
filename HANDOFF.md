@@ -3,8 +3,8 @@
 Tài liệu bàn giao nhanh để tiếp tục phát triển và vận hành dự án trong phiên làm việc mới.
 
 ## 1. Tổng quan kiến trúc (v3.3)
-- **Web App khách hàng (GitHub Pages)**: thư mục `docs/` → https://dao90-byte.github.io/phong-van-thcn/
-- **Trung tâm Điều khiển Web độc lập (GitHub Pages)**: `docs/admin.html` → https://dao90-byte.github.io/phong-van-thcn/admin.html (đồng bộ tự động từ `gas/CommandCenter.html`, bảo vệ bằng mã PIN SHA-256 + tự nhớ trình duyệt + cache `localStorage` mở tức thì 0ms)
+- **Web App khách hàng (GitHub Pages)**: thư mục `docs/` → https://dao90-byte.github.io/phong-van-thcn/#k=<token>
+- **Trung tâm Điều khiển Web độc lập (GitHub Pages)**: mở trực tiếp tại mặt chính https://dao90-byte.github.io/phong-van-thcn/ (tự chuyển tức thì 0ms sang `admin.html` khi không có `#k=`), đồng bộ tự động từ `gas/CommandCenter.html`, bảo vệ bằng mã PIN SHA-256 + tự nhớ trình duyệt + cache `localStorage` mở tức thì 0ms
 - **Backend API & Trung tâm Điều khiển (Google Apps Script)**: thư mục `gas/` (9 tệp phẳng đồng bộ sang nhánh `gas`)
 - **Cơ sở dữ liệu (Google Sheets)**: 8 tab chia 3 vùng (`Dashboard`, `Questions`, `Templates`, `Config`, `Clients`, `Responses`, `LiveNotes`, `StageReviews`)
 

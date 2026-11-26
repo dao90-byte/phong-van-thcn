@@ -68,7 +68,7 @@
     }
 
     if (!effectiveToken) {
-      showError('🔗', 'Thiếu mã truy cập cá nhân', 'Anh/chị vui lòng mở đúng đường link riêng có dạng #k=... do chuyên gia gửi.');
+      window.location.replace('admin.html');
       return;
     }
 

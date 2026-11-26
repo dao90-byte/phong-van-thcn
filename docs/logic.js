@@ -51,6 +51,17 @@
     return { token: '', isDemo: false, fromQuery: false };
   }
 
+  /**
+   * Kiểm tra trang chủ có nên chuyển thẳng sang Trung tâm Điều khiển (admin.html) không.
+   * Chỉ chuyển khi KHÔNG có token khách ở URL (#k=, ?k=) và KHÔNG có phiên khách đang mở trong sessionStorage.
+   */
+  function shouldRedirectToAdmin(hashStr, searchStr, storedToken) {
+    var parsed = extractTokenFromLocation(hashStr, searchStr);
+    if (parsed.token) return false;
+    if (String(storedToken || '').trim()) return false;
+    return true;
+  }
+
   function parseSimpleParams(str) {
     var out = {};
     if (!str) return out;
@@ -266,6 +277,7 @@
   return {
     detectInAppBrowser: detectInAppBrowser,
     extractTokenFromLocation: extractTokenFromLocation,
+    shouldRedirectToAdmin: shouldRedirectToAdmin,
     countWords: countWords,
     hasHardEvidenceSignal: hasHardEvidenceSignal,
     evaluateEvidence: evaluateEvidence,

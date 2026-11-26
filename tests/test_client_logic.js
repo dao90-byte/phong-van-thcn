@@ -37,6 +37,16 @@ assert(t2.isDemo === true, 'Nhận diện chế độ #demo');
 var t3 = Logic.extractTokenFromLocation('', '?k=LegacyToken12345');
 assert(t3.token === 'LegacyToken12345' && t3.fromQuery === true, 'Hỗ trợ fallback nếu mở link ?k= cũ');
 
+// 2b. Root URL auto-routing to Command Center (admin.html)
+assert(Logic.shouldRedirectToAdmin('', '', '') === true,
+  'Mở thẳng trang chủ (không có token) -> chuyển ngay sang Trung tâm Điều khiển');
+assert(Logic.shouldRedirectToAdmin('#k=AbCdEf123456789012345678', '', '') === false,
+  'Khách mở link #k=... -> ở lại trang phỏng vấn, không chuyển sang admin');
+assert(Logic.shouldRedirectToAdmin('', '?k=LegacyToken12345', '') === false,
+  'Khách mở link ?k=... -> ở lại trang phỏng vấn, không chuyển sang admin');
+assert(Logic.shouldRedirectToAdmin('', '', 'SavedSessionToken12345') === false,
+  'Khách bấm F5 tải lại khi đã có sessionStorage token -> giữ nguyên phiên phỏng vấn');
+
 // 3. Evidence Pinning False-Positive Prevention Tests (các case chốt trong bản v2!)
 var vagueWords = ['rất tận tâm', 'khách rất thích', 'chuyên nghiệp', 'uy tín', 'chất lượng cao'];
 
