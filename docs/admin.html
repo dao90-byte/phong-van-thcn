@@ -2,6 +2,10 @@
 <html lang="vi">
 <head>
   <!-- Bản Web độc lập (GitHub Pages) đồng bộ tự động từ gas/CommandCenter.html -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <meta name="theme-color" content="#0f5257">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Trung tâm Điều khiển – Phỏng vấn THCN</title>
@@ -413,17 +417,81 @@
     }
     .toast.hide { opacity: 0; pointer-events: none; transform: translateY(8px); }
 
+    /* ===== v4: FOCUS MODE, MOBILE DRAWER, STRATEGY CANVAS, TAGS, PRINT ===== */
+    .shell.focus-mode .sidebar { display: none; }
+    .sb-sync { font-size: 10.5px; color: var(--muted); display: flex; align-items: center; justify-content: space-between; margin-top: -2px; }
+    .ci-overdue { color: var(--red); font-weight: 700; font-size: 10.5px; background: #fef2f2; border: 1px solid #fecaca; padding: 0 5px; border-radius: 4px; }
+    .status-pill.overdue { background: #fef2f2; color: var(--red); border-color: #fecaca; }
+    .sb-backdrop { position: fixed; inset: 0; background: rgba(28, 25, 23, 0.35); z-index: 55; }
+    .menu-toggle-btn { margin-right: 4px; }
+
+    /* Clickable links inside answers */
+    a.ans-link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
+    a.ans-link:hover { color: var(--accent-hover); }
+
+    /* Strategy Canvas (Tab Tổng quan) */
+    .strat-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .strat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+    .anchor-card { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 11px 13px; }
+    .anchor-lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--accent); margin-bottom: 4px; display: flex; justify-content: space-between; }
+    .anchor-val { font-size: 12.5px; color: var(--ink); white-space: pre-wrap; line-height: 1.5; }
+    .anchor-val.empty { color: var(--muted); font-style: italic; }
+    .stage-sum-card { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 12px 14px; margin-bottom: 10px; }
+    .stage-sum-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .stage-sum-title { font-weight: 700; font-size: 13px; color: var(--ink); }
+    .stage-sum-body { font-size: 12.5px; color: var(--ink); white-space: pre-wrap; line-height: 1.55; }
+
+    /* Pre-call Brief & Live Agenda */
+    .prep-box { background: #fffdf5; border: 1px solid var(--amber-border); border-radius: 9px; padding: 11px 13px; margin-bottom: 12px; }
+    .prep-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .prep-title { font-size: 12px; font-weight: 700; color: var(--amber); display: flex; align-items: center; gap: 6px; }
+    .prep-ta { width: 100%; min-height: 76px; border: 1px solid var(--amber-border); border-radius: 7px; padding: 8px 10px; font-family: inherit; font-size: 12.5px; background: #fff; color: var(--ink); resize: vertical; }
+    .prep-ta:focus { outline: none; border-color: var(--amber); }
+    .hybrid-ref { background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; padding: 7px 10px; margin: 6px 0 8px; font-size: 12px; color: var(--ink); white-space: pre-wrap; }
+    .hybrid-ref-lbl { font-size: 10.5px; font-weight: 700; color: var(--accent); text-transform: uppercase; display: block; margin-bottom: 2px; }
+    .q-tag.done-live { background: var(--green-bg); color: var(--green); border-color: var(--green-border); }
+    .q-tag.hybrid { background: var(--accent-soft); color: var(--accent); border-color: rgba(15,82,87,0.2); }
+
+    /* Quick Tag pills in Notes */
+    .tag-row { display: flex; gap: 5px; flex-wrap: wrap; margin: 8px 0 6px; }
+    .tag-pill { border: 1px solid var(--border); background: var(--surface); color: var(--ink2); border-radius: 999px; padding: 3px 9px; font-size: 11.5px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .tag-pill:hover { background: var(--subtle); }
+    .tag-pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .ntag { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-right: 4px; }
+    .ntag-F { background: var(--green-bg); color: var(--green); }
+    .ntag-A { background: var(--amber-bg); color: var(--amber); }
+    .ntag-G { background: var(--accent-soft); color: var(--accent); }
+    .ntag-Q { background: #f3e8ff; color: #7e22ce; }
+    .ntag-RAW { background: var(--subtle); color: var(--ink2); }
+
     @media (max-width: 920px) {
-      .sidebar { width: 210px; }
+      .sidebar { width: 220px; }
       .ws-top { padding: 10px 14px 0; }
       .ws-body { padding: 12px 14px 24px; }
-      .stage-matrix { grid-template-columns: 1fr; }
+      .stage-matrix, .strat-grid { grid-template-columns: 1fr; }
     }
-    @media (max-width: 680px) {
-      .sidebar { width: 176px; }
-      .sb-filters { grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 820px) {
+      .sidebar {
+        position: fixed; top: 0; left: 0; bottom: 0; width: 276px; max-width: 84vw;
+        z-index: 60; transform: translateX(-105%); transition: transform 0.2s ease;
+        box-shadow: var(--shadow-pop);
+      }
+      .shell.mobile-sb-open .sidebar { transform: translateX(0); display: flex; }
+      .shell.focus-mode .sidebar { display: flex; }
       .grid2 { grid-template-columns: 1fr; }
+      .ws-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     }
+
+    @media print {
+      html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+      .sidebar, .ws-top, .sb-backdrop, .quick-banner, .no-print, .overlay, .toast, .pin-gate { display: none !important; }
+      .shell, .main, #workspaceWrap, .ws-body { display: block !important; height: auto !important; width: 100% !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; }
+      #paneAnswers, #paneNotes, #paneReview, #paneSettings { display: none !important; }
+      #paneStrategy { display: block !important; }
+      .print-header { display: block !important; margin-bottom: 14px; border-bottom: 2px solid #0f5257; padding-bottom: 8px; }
+      .anchor-card, .stage-sum-card { break-inside: avoid; border: 1px solid #d6d3d1; }
+    }
+    .print-header { display: none; }
 
     /* ===== STANDALONE PIN GATE ===== */
     .pin-gate {
@@ -492,7 +560,8 @@
     </div>
   </div>
 
-  <div class="shell">
+  <div id="sbBackdrop" class="sb-backdrop hidden"></div>
+  <div id="appShell" class="shell">
     <!-- ==================== LEFT SIDEBAR ==================== -->
     <aside class="sidebar">
       <div class="sb-top">
@@ -508,6 +577,7 @@
             <button id="openCreateBtn" class="btn btn-primary btn-sm" type="button">+ Mới</button>
           </div>
         </div>
+        <div class="sb-sync"><span id="syncTimeTxt">Đang sẵn sàng</span></div>
         <div class="search-wrap">
           <svg class="ic ic-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input id="searchInput" class="sb-search" placeholder="Tìm tên, mã KH, lĩnh vực...">
@@ -547,6 +617,9 @@
           <!-- Row 1: Identity + Stage Switcher -->
           <div class="ws-row1">
             <div class="ws-identity">
+              <button id="toggleSidebarBtn" class="icon-btn menu-toggle-btn" type="button" title="Ẩn/hiện danh sách khách (Chế độ tập trung)">
+                <svg class="ic" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+              </button>
               <h1 id="wsName" class="ws-name"></h1>
               <span id="wsId" class="meta-code"></span>
               <span class="meta-sep">·</span>
@@ -554,6 +627,7 @@
               <span id="wsBranchSep" class="meta-sep hidden">·</span>
               <span id="wsBranch" class="meta-txt hidden"></span>
               <span id="wsStatusPill" class="status-pill"><span class="dot"></span><span id="wsStatusTxt"></span></span>
+              <span id="wsOverduePill" class="status-pill overdue hidden">Quá hạn</span>
             </div>
 
             <div class="stage-group">
@@ -565,7 +639,7 @@
               </div>
               <span id="roundWrap" class="round-wrap hidden">
                 Đợt
-                <input id="wsRound" class="round-input" value="R1" title="Đợt rà soát GĐ 4 (VD: Q1, Q2)">
+                <select id="wsRound" class="round-input" style="width:auto;min-width:64px;" title="Chọn đợt rà soát GĐ 4"></select>
               </span>
             </div>
           </div>
@@ -618,11 +692,15 @@
                 <svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 <span>Tin Zalo</span>
               </button>
+              <button id="copyNudgeBtn" class="btn btn-sec btn-sm" type="button" title="Copy tin nhắn Zalo nhắc khách điền tiếp theo tiến độ hiện tại">
+                <span>Nhắc Zalo</span>
+              </button>
             </div>
           </div>
 
-          <!-- Row 3: Clean Single-Line Tabs -->
+          <!-- Row 3: Clean Single-Line Tabs (v4: 5 tabs) -->
           <div class="ws-tabs">
+            <button class="ws-tab" data-tab="strategy" type="button">Tổng quan</button>
             <button class="ws-tab active" data-tab="answers" type="button">Câu trả lời <span id="tabAnsCount" class="tab-pill">0/0</span></button>
             <button class="ws-tab" data-tab="notes" type="button">Ghi chú <span id="tabNoteCount" class="tab-pill">0</span></button>
             <button class="ws-tab" data-tab="review" type="button">Chốt giai đoạn</button>
@@ -645,13 +723,33 @@
             </div>
           </div>
 
+          <!-- TAB 0 (v4): TỔNG QUAN CHIẾN LƯỢC (LIVING BRAND CANVAS) -->
+          <div id="paneStrategy" class="hidden">
+            <div class="print-header">
+              <h2 id="printClientTitle" style="margin:0 0 4px;color:#0f5257;"></h2>
+              <div id="printClientSub" style="font-size:12px;color:#57534e;"></div>
+            </div>
+            <div class="strat-head no-print">
+              <div>
+                <strong style="font-size:14px;color:var(--ink);">Hồ sơ Chiến lược Thương hiệu Cá nhân (1 trang)</strong>
+                <div style="font-size:12px;color:var(--muted);">Tổng hợp tự động 4 dữ kiện neo bất biến và toàn bộ kết quả đã chốt qua 4 giai đoạn.</div>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button id="copyStrategyConfirmBtn" class="btn btn-sec btn-sm" type="button">Copy bản xác nhận Zalo</button>
+                <button id="printStrategyBtn" class="btn btn-primary btn-sm" type="button">Xuất PDF / In A4</button>
+              </div>
+            </div>
+            <div id="strategyAnchors" class="strat-grid"></div>
+            <div id="strategyStages"></div>
+          </div>
+
           <!-- TAB 1: CÂU TRẢ LỜI -->
           <div id="paneAnswers">
             <div class="ans-bar">
               <div class="chip-row">
                 <button class="chip active" data-ansfilter="self" type="button" id="fltSelfBtn">Tự điền</button>
                 <button class="chip" data-ansfilter="attention" type="button" id="fltAttnBtn">Lưu ý</button>
-                <button class="chip" data-ansfilter="live" type="button" id="fltLiveBtn">Trực tiếp</button>
+                <button class="chip" data-ansfilter="live" type="button" id="fltLiveBtn">Phỏng vấn Live</button>
               </div>
               <span id="ansStatsText" class="ans-stats"></span>
             </div>
@@ -662,6 +760,13 @@
           <div id="paneNotes" class="hidden">
             <div class="panel">
               <label class="fld">Ghi chú buổi gặp trực tiếp hoặc Transcript – Giai đoạn <span id="notesStageNum">1</span></label>
+              <div class="tag-row" id="noteTagRow">
+                <button class="tag-pill active" data-ntag="RAW" type="button">RAW · Chung/Transcript</button>
+                <button class="tag-pill" data-ntag="F" type="button">[F] Sự thật</button>
+                <button class="tag-pill" data-ntag="A" type="button">[A] Giả định</button>
+                <button class="tag-pill" data-ntag="G" type="button">[G] Mục tiêu</button>
+                <button class="tag-pill" data-ntag="Q" type="button">[Q] Trích dẫn đắt</button>
+              </div>
               <textarea id="noteInput" class="inp" style="min-height:130px;" placeholder="Dán nhanh ghi chú hoặc transcript buổi gặp... (tự động ghép vào khi Copy cho AI đánh giá)"></textarea>
               <div class="form-foot">
                 <div class="note-foot-left">
@@ -692,11 +797,14 @@
               <label class="fld" style="margin-top:14px;">Nhận xét của chuyên gia</label>
               <textarea id="revNote" class="inp" style="min-height:64px;" placeholder="Điểm mạnh nổi bật hoặc nội dung cần làm rõ thêm..."></textarea>
 
-              <label class="fld">Tóm tắt chốt giai đoạn (tự động đính kèm sang Giai đoạn tiếp theo)</label>
+              <label class="fld">Tóm tắt chốt giai đoạn (tự động đính kèm sang GĐ tiếp theo &amp; hiển thị cho khách khi mở GĐ mới)</label>
               <textarea id="revSummary" class="inp" style="min-height:115px;" placeholder="Dán 8–10 gạch đầu dòng chốt kết quả của giai đoạn này..."></textarea>
 
-              <div class="form-foot">
-                <button id="saveReviewBtn" class="btn btn-sec" type="button">Lưu nháp</button>
+              <div class="form-foot" style="flex-wrap:wrap;gap:8px;">
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  <button id="saveReviewBtn" class="btn btn-sec" type="button">Lưu nháp</button>
+                  <button id="copyReviewConfirmBtn" class="btn btn-sec" type="button">Copy bản chốt gửi Zalo</button>
+                </div>
                 <button id="completeNextBtn" class="btn btn-primary" type="button">Chốt GĐ 1 &amp; Mở GĐ 2 →</button>
               </div>
             </div>
@@ -737,6 +845,7 @@
                   <select id="setStatus" class="inp">
                     <option value="active">Đang mở (khách truy cập được)</option>
                     <option value="closed">Đã đóng (ngừng truy cập)</option>
+                    <option value="archived">Lưu trữ (ẩn khỏi danh sách chính)</option>
                   </select>
                 </div>
               </div>
@@ -867,6 +976,7 @@
       previewKey: 'cleanAnswers',
       currentGroups: [],
       editingCode: '',
+      selectedNoteTag: 'RAW',
       liveDrafts: {},
       voice: {
         activeCode: '',
@@ -1426,14 +1536,19 @@
         var submittedActive = revs.some(function (sr) { return sr.stage === activeStage && sr.submitted_at; });
 
         var badge = 'not_started';
-        if (c.status === 'closed') badge = 'closed';
+        if (c.status === 'archived') badge = 'archived';
+        else if (c.status === 'closed') badge = 'closed';
         else if (submittedActive) badge = 'submitted';
         else if (answered > 0) badge = 'in_progress';
+
+        var overdue = (badge !== 'submitted' && badge !== 'closed' && badge !== 'archived') && isDeadlineOverdue(c.deadline);
 
         return {
           client_id: c.client_id,
           name: c.name,
           field: c.field,
+          deadline: c.deadline || '',
+          overdue: overdue,
           active_stage: activeStage,
           answered: answered,
           total: res.questions.length,
@@ -1443,13 +1558,177 @@
         };
       });
 
-      var prio = { submitted: 0, in_progress: 1, not_started: 2, closed: 3 };
+      var prio = { submitted: 0, in_progress: 1, not_started: 2, closed: 3, archived: 4 };
       S.summaries.sort(function (a, b) {
         if (prio[a.badge] !== prio[b.badge]) return prio[a.badge] - prio[b.badge];
+        if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
         if (a.latest_update !== b.latest_update) return a.latest_update < b.latest_update ? 1 : -1;
         return a.client_id < b.client_id ? 1 : -1;
       });
+      updateSyncTimeLabel();
       saveCachedSnapshot(S.snap);
+    }
+
+    function isDeadlineOverdue(deadlineStr) {
+      var s = String(deadlineStr || '').trim();
+      if (!s) return false;
+      var y, m, d;
+      var m1 = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+      var m2 = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+      if (m1) { d = parseInt(m1[1], 10); m = parseInt(m1[2], 10); y = parseInt(m1[3], 10); }
+      else if (m2) { y = parseInt(m2[1], 10); m = parseInt(m2[2], 10); d = parseInt(m2[3], 10); }
+      else return false;
+      var due = new Date(y, m - 1, d, 23, 59, 59);
+      if (isNaN(due.getTime())) return false;
+      return due.getTime() < Date.now();
+    }
+
+    function updateSyncTimeLabel() {
+      var el = document.getElementById('syncTimeTxt');
+      if (!el) return;
+      var ts = S.snap && S.snap.loadedAt;
+      if (!ts) { el.textContent = 'Đang sẵn sàng'; return; }
+      var dt = new Date(ts);
+      if (isNaN(dt.getTime())) { el.textContent = 'Đã đồng bộ'; return; }
+      var hh = String(dt.getHours()).padStart(2, '0');
+      var mm = String(dt.getMinutes()).padStart(2, '0');
+      el.textContent = 'Đồng bộ lúc ' + hh + ':' + mm;
+    }
+
+    function linkifyEsc(text) {
+      var safe = esc(text);
+      return safe.replace(/(https?:\/\/[^\s<>"']+)/g, function (url) {
+        var clean = url.replace(/[.,;!?)]+$/, '');
+        var tail = url.slice(clean.length);
+        return '<a class="ans-link" href="' + clean + '" target="_blank" rel="noopener noreferrer">' + clean + '</a>' + tail;
+      });
+    }
+
+    function buildNudgeZaloText(client, ctx) {
+      var remain = Math.max(0, ctx.selfEligible.length - ctx.doneCount);
+      var progLine = ctx.doneCount > 0
+        ? ('Hiện anh/chị đã hoàn thành ' + ctx.doneCount + '/' + ctx.selfEligible.length + ' câu (chỉ còn ' + remain + ' câu ngắn nữa).')
+        : ('Hiện phần chuẩn bị Giai đoạn ' + ctx.stageNum + ' gồm ' + ctx.selfEligible.length + ' câu ngắn.');
+      var dueLine = client.deadline ? (' Hạn dự kiến: ' + client.deadline + '.') : '';
+      return 'Chào anh/chị ' + (client.name || '') + ',\n\n' +
+        'Em gửi nhắc nhẹ phần chuẩn bị dữ kiện Giai đoạn ' + ctx.stageNum + ' trước buổi làm việc sắp tới của mình nhé. ' +
+        progLine + dueLine + '\n\n' +
+        'Anh/chị bấm lại đúng link cũ để điền tiếp (hệ thống đã tự lưu phần trước đó):\n' +
+        (client.link || '') + '\n\n' +
+        'Cảm ơn anh/chị nhiều ạ!';
+    }
+
+    function buildConfirmZaloText(client, stageNum, summaryText) {
+      var clean = String(summaryText || '').trim();
+      if (!clean) return '';
+      return 'Chào anh/chị ' + (client.name || '') + ',\n\n' +
+        'Em gửi lại bản Tóm tắt chốt Giai đoạn ' + stageNum + ' mà hai bên vừa thống nhất để anh/chị xem và xác nhận:\n\n' +
+        clean + '\n\n' +
+        'Anh/chị kiểm tra giúp em xem đã sát ý chưa, hoặc cần chỉnh thêm điểm nào để em chốt hồ sơ và mở tiếp giai đoạn sau nhé!';
+    }
+
+    function renderRoundSelector(client) {
+      var sel = document.getElementById('wsRound');
+      if (!sel) return;
+      var roundSet = { R1: true };
+      roundSet[S.selectedRound || 'R1'] = true;
+      var resps = (S.snap && S.snap.responsesByClient && S.snap.responsesByClient[client.client_id]) || [];
+      var revs = (S.snap && S.snap.reviewsByClient && S.snap.reviewsByClient[client.client_id]) || [];
+      resps.forEach(function (r) { if (r.stage === 4 && r.round) roundSet[r.round] = true; });
+      revs.forEach(function (sr) { if (sr.stage === 4 && sr.round) roundSet[sr.round] = true; });
+      var rounds = Object.keys(roundSet);
+      sel.innerHTML = rounds.map(function (r) {
+        return '<option value="' + esc(r) + '"' + (r === S.selectedRound ? ' selected' : '') + '>' + esc(r) + '</option>';
+      }).join('') + '<option value="__NEW__">+ Đợt mới...</option>';
+    }
+
+    function renderStrategyPane(client) {
+      var resps = (S.snap && S.snap.responsesByClient && S.snap.responsesByClient[client.client_id]) || [];
+      var byCode = {};
+      resps.forEach(function (r) { if (r.code && r.answer && r.answer.trim()) byCode[r.code] = r; });
+
+      document.getElementById('printClientTitle').textContent = 'HỒ SƠ CHIẾN LƯỢC THƯƠNG HIỆU CÁ NHÂN – ' + (client.name || client.client_id);
+      document.getElementById('printClientSub').textContent = (client.field || 'Chưa rõ lĩnh vực') + ' · Mã ' + client.client_id + ' · Xuất ngày ' + new Date().toISOString().slice(0, 10);
+
+      var anchors = [
+        { code: '1.1.3', label: 'KPI ưu tiên số 1' },
+        { code: '1.1.5', label: 'Quỹ thời gian & Đội ngũ' },
+        { code: '1.1.4', label: 'Ranh giới & Vùng cấm' },
+        { code: '2.2.3', label: 'Tuyên bố Định vị' }
+      ];
+      document.getElementById('strategyAnchors').innerHTML = anchors.map(function (a) {
+        var r = byCode[a.code];
+        var val = r ? r.answer.trim() : '';
+        return '<div class="anchor-card">' +
+          '<div class="anchor-lbl"><span>' + esc(a.label) + '</span><span>' + esc(a.code) + '</span></div>' +
+          '<div class="anchor-val' + (val ? '' : ' empty') + '">' + (val ? linkifyEsc(val) : 'Chưa có dữ liệu chốt') + '</div>' +
+        '</div>';
+      }).join('');
+
+      var revs = (S.snap && S.snap.reviewsByClient && S.snap.reviewsByClient[client.client_id]) || [];
+      var stageNames = {
+        1: 'Giai đoạn 1 · Hiện trạng, Năng lực & Bằng chứng',
+        2: 'Giai đoạn 2 · Chân dung khách, Định vị & Dòng tiền',
+        3: 'Giai đoạn 3 · Trụ cột Nội dung & Trải nghiệm thử',
+        4: 'Giai đoạn 4 · Rà soát Quý & Thought Leadership'
+      };
+      document.getElementById('strategyStages').innerHTML = [1, 2, 3, 4].map(function (st) {
+        var found = revs.filter(function (sr) { return sr.stage === st && sr.approved_summary && sr.approved_summary.trim(); });
+        var latest = found.length ? found[found.length - 1] : null;
+        var isLocked = (client.stages_locked || []).indexOf(st) !== -1;
+        var badge = isLocked
+          ? '<span class="q-tag done-live">Đã chốt</span>'
+          : '<button class="mini-copy no-print" data-jump-rev="' + st + '" type="button">Mở Chốt GĐ ' + st + '</button>';
+        return '<div class="stage-sum-card">' +
+          '<div class="stage-sum-head"><span class="stage-sum-title">' + esc(stageNames[st]) + '</span>' + badge + '</div>' +
+          '<div class="stage-sum-body' + (latest ? '' : ' empty') + '" style="' + (latest ? '' : 'color:var(--muted);font-style:italic;') + '">' +
+            (latest ? linkifyEsc(latest.approved_summary.trim()) : 'Chưa lưu tóm tắt chốt cho giai đoạn này.') +
+          '</div>' +
+        '</div>';
+      }).join('');
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-jump-rev]'), function (btn) {
+        btn.addEventListener('click', function () {
+          S.selectedStage = parseInt(btn.getAttribute('data-jump-rev'), 10) || 1;
+          setActiveTab('review');
+          renderWorkspace();
+        });
+      });
+    }
+
+    function savePrepBrief(txt, btnEl) {
+      var clean = String(txt || '').trim();
+      if (!clean) { showToast('Anh/chị chưa nhập nội dung kịch bản buổi gặp'); return; }
+      var orig = btnEl ? btnEl.textContent : '';
+      if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Đang lưu...'; }
+      callServer('ccSaveLiveNotes', [{
+        client_id: S.selectedClientId,
+        stage: S.selectedStage,
+        round: S.selectedRound,
+        mode: 'coded',
+        code: 'PREP',
+        tag: 'PREP',
+        text: clean
+      }], function (res) {
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = orig; }
+        if (!S.snap.notesByClient[S.selectedClientId]) S.snap.notesByClient[S.selectedClientId] = [];
+        var list = S.snap.notesByClient[S.selectedClientId];
+        var newRec = (res && res.notes && res.notes[0]) || { round: S.selectedRound, stage: S.selectedStage, code: 'PREP', tag: 'PREP', note: clean, created_at: new Date().toISOString() };
+        var updated = false;
+        for (var i = 0; i < list.length; i++) {
+          if (list[i].stage === S.selectedStage && (list[i].round || 'R1') === S.selectedRound && String(list[i].code || '').toUpperCase() === 'PREP') {
+            list[i] = newRec;
+            updated = true;
+            break;
+          }
+        }
+        if (!updated) list.push(newRec);
+        saveCachedSnapshot(S.snap);
+        showToast('Đã lưu Kịch bản buổi gặp GĐ ' + S.selectedStage);
+      }, function (e) {
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = orig; }
+        showToast('Lỗi lưu kịch bản: ' + (e && e.message ? e.message : e));
+      });
     }
 
     function hydrateSnapshot(snap, keepSelection) {
@@ -1511,7 +1790,12 @@
     function renderClientList() {
       var listEl = document.getElementById('clientList');
       var filtered = S.summaries.filter(function (c) {
-        if (S.filterStatus !== 'all' && c.badge !== S.filterStatus) return false;
+        if (S.filterStatus === 'all' && c.badge === 'archived') return false;
+        if (S.filterStatus === 'closed') {
+          if (c.badge !== 'closed' && c.badge !== 'archived') return false;
+        } else if (S.filterStatus !== 'all' && c.badge !== S.filterStatus) {
+          return false;
+        }
         if (S.searchQuery) {
           var hay = (c.name + ' ' + c.client_id + ' ' + c.field).toLowerCase();
           if (hay.indexOf(S.searchQuery) === -1) return false;
@@ -1524,19 +1808,19 @@
         return;
       }
 
-      var statusText = { submitted: 'Đã nộp', in_progress: 'Đang điền', not_started: 'Chưa làm', closed: 'Đã đóng' };
+      var statusText = { submitted: 'Đã nộp', in_progress: 'Đang điền', not_started: 'Chưa làm', closed: 'Đã đóng', archived: 'Lưu trữ' };
       listEl.innerHTML = filtered.map(function (c) {
         var pct = c.total > 0 ? Math.round((c.answered / c.total) * 100) : 0;
         var activeCls = c.client_id === S.selectedClientId ? ' active' : '';
         return '<button class="client-item' + activeCls + '" data-cid="' + esc(c.client_id) + '" data-stage="' + c.active_stage + '" type="button">' +
           '<div class="ci-r1">' +
-            '<span class="ci-name-wrap"><span class="dot ' + c.badge + '"></span><span class="ci-name">' + esc(c.name) + '</span></span>' +
+            '<span class="ci-name-wrap"><span class="dot ' + (c.badge === 'archived' ? 'closed' : c.badge) + '"></span><span class="ci-name">' + esc(c.name) + '</span></span>' +
             '<span class="ci-id">' + esc(c.client_id) + '</span>' +
           '</div>' +
           '<div class="ci-r2"><span class="ci-field">' + esc(c.field || 'Chưa rõ lĩnh vực') + '</span><span class="ci-prog">GĐ' + c.active_stage + ' · ' + c.answered + '/' + c.total + '</span></div>' +
           '<div class="ci-bar-wrap"><div class="ci-bar" style="width:' + pct + '%"></div></div>' +
           '<div class="ci-meta"><span>' + (statusText[c.badge] || '') + '</span>' +
-            (c.flags > 0 ? '<span class="ci-flag">' + c.flags + ' lưu ý</span>' : '') +
+            (c.overdue ? '<span class="ci-overdue">Quá hạn</span>' : (c.flags > 0 ? '<span class="ci-flag">' + c.flags + ' lưu ý</span>' : '')) +
           '</div>' +
         '</button>';
       }).join('');
@@ -1545,13 +1829,13 @@
         btn.addEventListener('click', function () {
           var cid = btn.getAttribute('data-cid');
           var st = parseInt(btn.getAttribute('data-stage'), 10) || 1;
+          closeMobileSidebar();
           if (cid === S.selectedClientId && st === S.selectedStage) return;
           stopVoiceRecording(true);
           S.editingCode = '';
           S.selectedClientId = cid;
           S.selectedStage = st;
           S.selectedRound = 'R1';
-          document.getElementById('wsRound').value = 'R1';
           hideQuickBanner();
           renderClientList();
           renderWorkspace();
@@ -1577,7 +1861,9 @@
       var pill = document.getElementById('wsStatusPill');
       var dot = pill.querySelector('.dot');
       var txt = document.getElementById('wsStatusTxt');
-      if (client.status === 'closed') {
+      if (client.status === 'archived') {
+        pill.className = 'status-pill closed'; dot.className = 'dot closed'; txt.textContent = 'Lưu trữ';
+      } else if (client.status === 'closed') {
         pill.className = 'status-pill closed'; dot.className = 'dot closed'; txt.textContent = 'Đã đóng';
       } else if (ctx.currentReview && ctx.currentReview.submitted_at) {
         pill.className = 'status-pill submitted'; dot.className = 'dot submitted'; txt.textContent = 'Đã nộp GĐ ' + ctx.stageNum;
@@ -1585,6 +1871,12 @@
         pill.className = 'status-pill in_progress'; dot.className = 'dot in_progress'; txt.textContent = 'Đang điền ' + ctx.doneCount + '/' + ctx.selfEligible.length;
       } else {
         pill.className = 'status-pill'; dot.className = 'dot'; txt.textContent = 'Chưa làm';
+      }
+      var isOverdue = client.status === 'active' && !(ctx.currentReview && ctx.currentReview.submitted_at) && isDeadlineOverdue(client.deadline);
+      var ovPill = document.getElementById('wsOverduePill');
+      if (ovPill) {
+        ovPill.classList.toggle('hidden', !isOverdue);
+        if (isOverdue) ovPill.textContent = 'Quá hạn (' + client.deadline + ')';
       }
 
       Array.prototype.forEach.call(document.querySelectorAll('.st-btn'), function (btn) {
@@ -1597,9 +1889,12 @@
       });
 
       document.getElementById('roundWrap').classList.toggle('hidden', ctx.stageNum !== 4);
+      if (ctx.stageNum === 4) renderRoundSelector(client);
       document.getElementById('tabAnsCount').textContent = ctx.doneCount + '/' + ctx.selfEligible.length;
-      document.getElementById('tabNoteCount').textContent = ctx.stageNotes.length;
+      var nonPrepNotesCount = ctx.stageNotes.filter(function (n) { return String(n.code || '').toUpperCase() !== 'PREP' && String(n.tag || '').toUpperCase() !== 'PREP'; }).length;
+      document.getElementById('tabNoteCount').textContent = nonPrepNotesCount;
 
+      renderStrategyPane(client);
       renderAnswersPane(ctx);
       renderNotesPane(ctx);
       renderReviewPane(ctx);
@@ -1794,8 +2089,14 @@
     function renderAnswersPane(ctx) {
       var selfCount = 0;
       var attnCount = 0;
-      var liveUnansweredCount = 0;
+      var liveAgendaCount = 0;
       var liveAnsweredCount = 0;
+
+      function isInLiveAgenda(q, r) {
+        var hasAns = Boolean(r && r.answer && r.answer.trim());
+        var hasFlags = Boolean(r && r.flags && r.flags.length);
+        return q.mode === 'live' || q.mode === 'hybrid' || !hasAns || hasFlags;
+      }
 
       ctx.resolved.questions.forEach(function (q) {
         var r = ctx.stageResponses[q.code];
@@ -1803,12 +2104,12 @@
         if (q.mode !== 'live' || hasAns) selfCount++;
         if (q.mode === 'live' && hasAns) liveAnsweredCount++;
         if (r && r.flags && r.flags.length) attnCount++;
-        if (!hasAns) liveUnansweredCount++;
+        if (isInLiveAgenda(q, r)) liveAgendaCount++;
       });
 
       document.getElementById('fltSelfBtn').textContent = 'Tự điền (' + selfCount + ')';
       document.getElementById('fltAttnBtn').textContent = 'Lưu ý (' + attnCount + ')';
-      document.getElementById('fltLiveBtn').textContent = 'Trực tiếp (' + liveUnansweredCount + ')';
+      document.getElementById('fltLiveBtn').textContent = 'Phỏng vấn Live (' + liveAgendaCount + ')';
       document.getElementById('ansStatsText').textContent =
         ctx.doneCount + '/' + ctx.selfEligible.length + ' tự điền' +
         (liveAnsweredCount ? ' · ' + liveAnsweredCount + ' thu trực tiếp' : '') +
@@ -1818,8 +2119,22 @@
       var html = '';
 
       if (S.ansFilter === 'live') {
+        var prepRec = null;
+        for (var pi = 0; pi < ctx.stageNotes.length; pi++) {
+          if (String(ctx.stageNotes[pi].code || '').toUpperCase() === 'PREP') {
+            prepRec = ctx.stageNotes[pi];
+          }
+        }
+        var prepVal = prepRec ? prepRec.note : '';
         html += '<div class="live-banner">' +
-          '<div><strong>Phỏng vấn trực tiếp (' + liveUnansweredCount + ' câu chưa trả lời)</strong> · Gõ hoặc bấm <strong>Nói</strong> để thu âm trực tiếp rồi bấm Lưu.</div>' +
+          '<div><strong>Chế độ Phỏng vấn Live (' + liveAgendaCount + ' câu trọng tâm)</strong> · Gom đủ câu hỏi trực tiếp, câu hybrid cần chốt và câu có lưu ý — lưu xong giữ nguyên trên màn hình.</div>' +
+        '</div>';
+        html += '<div class="prep-box">' +
+          '<div class="prep-head">' +
+            '<span class="prep-title">📌 Kịch bản buổi gặp (Pre-call Brief / Câu xoáy từ AI)</span>' +
+            '<button id="savePrepBtn" class="btn btn-sec btn-sm" type="button">Lưu kịch bản</button>' +
+          '</div>' +
+          '<textarea id="prepBriefTa" class="prep-ta" placeholder="Dán 5 câu hỏi xoáy từ AI đọc trước vào đây để liếc nhanh trong suốt buổi Zoom/gặp trực tiếp...">' + esc(prepVal) + '</textarea>' +
         '</div>';
         if (S.voice.blocked) {
           html += '<div class="voice-warn">Khung Google Sheets đang chặn quyền Micro của trình duyệt. Anh/chị vẫn có thể bấm vào ô nhập rồi nhấn phím Micro hệ thống (<strong>Fn + Fn</strong> trên Mac hoặc <strong>Win + H</strong> trên Windows) để đọc thành chữ trực tiếp.</div>';
@@ -1832,7 +2147,7 @@
           var hasAns = Boolean(r && r.answer && r.answer.trim());
           if (S.ansFilter === 'self') return q.mode !== 'live' || hasAns;
           if (S.ansFilter === 'attention') return Boolean(r && r.flags && r.flags.length);
-          if (S.ansFilter === 'live') return !hasAns;
+          if (S.ansFilter === 'live') return isInLiveAgenda(q, r);
           return true;
         });
         if (!qs.length) return;
@@ -1848,14 +2163,28 @@
           );
           itemsForCopy.push({ code: q.code, question: qText, answer: hasAns ? r.answer.trim() : '', extra: (r && r.answer_extra) ? r.answer_extra.trim() : '', mode: q.mode });
 
-          // ===== CHẾ ĐỘ PHỎNG VẤN TRỰC TIẾP (CHỈ CÂU CHƯA TRẢ LỜI + KHUNG TRỐNG + NÓI) =====
+          // ===== CHẾ ĐỘ PHỎNG VẤN LIVE THỐNG NHẤT (LIVE + HYBRID + CHƯA TRẢ LỜI + LƯU Ý) =====
           if (S.ansFilter === 'live') {
             var dk = draftKeyFor(q.code);
-            var draftVal = S.liveDrafts[dk] || '';
+            var existingAns = hasAns ? r.answer.trim() : '';
+            var draftVal = (S.liveDrafts[dk] !== undefined) ? S.liveDrafts[dk] : existingAns;
             var isRec = S.voice.activeCode === q.code;
-            var badge = q.mode === 'live'
-              ? '<span class="q-tag live">Hỏi trực tiếp</span>'
-              : '<span class="q-tag missing">Khách chưa trả lời</span>';
+            var hasFlags = Boolean(r && r.flags && r.flags.length);
+            var badge = '';
+            if (q.mode === 'live') {
+              badge = hasAns ? '<span class="q-tag done-live">✓ Đã ghi nhận</span>' : '<span class="q-tag live">Hỏi trực tiếp</span>';
+            } else if (q.mode === 'hybrid') {
+              badge = hasAns ? '<span class="q-tag hybrid">Chốt lại trực tiếp</span>' : '<span class="q-tag missing">Hybrid · Chưa điền</span>';
+            } else if (hasFlags) {
+              badge = '<span class="flag-chip">Cần xoáy thêm</span>';
+            } else {
+              badge = '<span class="q-tag missing">Khách chưa điền</span>';
+            }
+
+            var refBlock = '';
+            if (q.mode !== 'live' && hasAns) {
+              refBlock = '<div class="hybrid-ref"><span class="hybrid-ref-lbl">Khách đã tự điền trước buổi gặp:</span>' + linkifyEsc(existingAns) + '</div>';
+            }
 
             var probesHtml = '';
             if (q.hidden_goal || (q.probes && q.probes.length)) {
@@ -1871,8 +2200,9 @@
                 '<div class="q-title-line"><span class="q-code">' + esc(q.code) + '</span><span class="q-text">' + esc(qText) + '</span></div>' +
                 '<div class="q-head-right">' + badge + '</div>' +
               '</div>' +
+              refBlock +
               probesHtml +
-              '<textarea class="live-ta" data-live-ta="' + esc(q.code) + '" placeholder="Ghi nhanh hoặc bấm Nói để thu âm câu trả lời trực tiếp...">' + esc(draftVal) + '</textarea>' +
+              '<textarea class="live-ta" data-live-ta="' + esc(q.code) + '" placeholder="Ghi nhanh hoặc bấm Nói để thu âm câu trả lời / ý chốt trực tiếp...">' + esc(draftVal) + '</textarea>' +
               '<div class="voice-interim' + (isRec ? '' : ' hidden') + '" data-interim="' + esc(q.code) + '">' + (isRec ? 'Đang thu âm...' : '') + '</div>' +
               '<div class="live-foot">' +
                 '<div class="live-foot-left">' +
@@ -1882,7 +2212,7 @@
                   '<span class="q-tag" data-wc="' + esc(q.code) + '">' + countWordsLocal(draftVal) + ' từ</span>' +
                 '</div>' +
                 '<div class="live-foot-right">' +
-                  '<button class="btn btn-primary btn-sm" data-save-live="' + esc(q.code) + '" type="button">Lưu câu này</button>' +
+                  '<button class="btn btn-primary btn-sm" data-save-live="' + esc(q.code) + '" type="button">' + (hasAns ? 'Cập nhật chốt' : 'Lưu câu này') + '</button>' +
                 '</div>' +
               '</div>' +
             '</div>';
@@ -1933,10 +2263,10 @@
             '</div>';
           } else {
             var ansBlock = hasAns
-              ? '<div class="q-ans">' + esc(r.answer.trim()) + '</div>'
+              ? '<div class="q-ans">' + linkifyEsc(r.answer.trim()) + '</div>'
               : '<div class="q-ans empty">Khách chưa trả lời câu này.</div>';
             var extraBlock = (r && r.answer_extra && r.answer_extra.trim())
-              ? '<div class="q-extra"><span class="q-extra-lbl">Dẫn chứng bổ sung</span>' + esc(r.answer_extra.trim()) + '</div>'
+              ? '<div class="q-extra"><span class="q-extra-lbl">Dẫn chứng bổ sung</span>' + linkifyEsc(r.answer_extra.trim()) + '</div>'
               : '';
             var flagsBlock = '';
             if (r && r.flags && r.flags.length) {
@@ -1979,6 +2309,15 @@
 
       var box = document.getElementById('answersContainer');
       box.innerHTML = html || emptyMsg;
+
+      // Bind nút Lưu Kịch bản buổi gặp (Pre-call Brief)
+      var savePrepBtn = document.getElementById('savePrepBtn');
+      if (savePrepBtn) {
+        savePrepBtn.addEventListener('click', function () {
+          var ta = document.getElementById('prepBriefTa');
+          savePrepBrief(ta ? ta.value : '', savePrepBtn);
+        });
+      }
 
       // Bind Copy 1 câu
       Array.prototype.forEach.call(box.querySelectorAll('[data-copy-q]'), function (btn) {
@@ -2097,8 +2436,11 @@
     }
 
     function renderNotesPane(ctx) {
+      var visibleNotes = ctx.stageNotes.filter(function (n) {
+        return String(n.code || '').toUpperCase() !== 'PREP' && String(n.tag || '').toUpperCase() !== 'PREP';
+      });
       document.getElementById('notesStageNum').textContent = ctx.stageNum;
-      document.getElementById('notesCountTitle').textContent = ctx.stageNotes.length;
+      document.getElementById('notesCountTitle').textContent = visibleNotes.length;
 
       var sel = document.getElementById('noteCodeSelect');
       var opts = ['<option value="RAW">Chung toàn buổi (RAW / Transcript)</option>'];
@@ -2109,16 +2451,19 @@
       sel.innerHTML = opts.join('');
 
       var listEl = document.getElementById('notesHistoryList');
-      if (!ctx.stageNotes.length) {
+      if (!visibleNotes.length) {
         listEl.innerHTML = '<div style="color:var(--muted);font-size:12.5px;">Chưa có ghi chú nào cho Giai đoạn ' + ctx.stageNum + '.</div>';
         return;
       }
-      listEl.innerHTML = ctx.stageNotes.slice().reverse().map(function (n) {
+      var tagNames = { F: 'Sự thật', A: 'Giả định', G: 'Mục tiêu', Q: 'Trích dẫn', RAW: 'RAW' };
+      listEl.innerHTML = visibleNotes.slice().reverse().map(function (n) {
         var timeStr = n.created_at ? n.created_at.slice(0, 16).replace('T', ' ') : '';
-        var tagBadge = n.code === 'RAW' ? 'Chung' : (n.code + (n.tag !== 'RAW' ? ' · ' + n.tag : ''));
+        var tCode = String(n.tag || 'RAW').toUpperCase();
+        var tCls = 'ntag ntag-' + (tagNames[tCode] ? tCode : 'RAW');
+        var codeLbl = n.code === 'RAW' ? 'Chung' : n.code;
         return '<div class="note-row">' +
-          '<div class="note-head"><span class="q-code">' + esc(tagBadge) + '</span><span class="note-time">' + esc(timeStr) + '</span></div>' +
-          '<div>' + esc(n.note) + '</div>' +
+          '<div class="note-head"><span><span class="' + tCls + '">[' + esc(tCode) + ']</span><span class="q-code">' + esc(codeLbl) + '</span></span><span class="note-time">' + esc(timeStr) + '</span></div>' +
+          '<div>' + linkifyEsc(n.note) + '</div>' +
         '</div>';
       }).join('');
     }
@@ -2203,6 +2548,7 @@
         round: S.selectedRound,
         mode: code === 'RAW' ? 'raw' : 'coded',
         code: code,
+        tag: S.selectedNoteTag || 'RAW',
         text: txt
       }], function (res) {
         btn.disabled = false; btn.textContent = 'Lưu ghi chú';
@@ -2381,10 +2727,30 @@
       Array.prototype.forEach.call(document.querySelectorAll('.ws-tab'), function (b) {
         b.classList.toggle('active', b.getAttribute('data-tab') === tab);
       });
+      document.getElementById('paneStrategy').classList.toggle('hidden', tab !== 'strategy');
       document.getElementById('paneAnswers').classList.toggle('hidden', tab !== 'answers');
       document.getElementById('paneNotes').classList.toggle('hidden', tab !== 'notes');
       document.getElementById('paneReview').classList.toggle('hidden', tab !== 'review');
       document.getElementById('paneSettings').classList.toggle('hidden', tab !== 'settings');
+    }
+
+    function closeMobileSidebar() {
+      var sh = document.getElementById('appShell');
+      var bd = document.getElementById('sbBackdrop');
+      if (sh) sh.classList.remove('mobile-sb-open');
+      if (bd) bd.classList.add('hidden');
+    }
+
+    function toggleSidebarMode() {
+      var sh = document.getElementById('appShell');
+      var bd = document.getElementById('sbBackdrop');
+      if (!sh) return;
+      if (window.innerWidth <= 820) {
+        var open = sh.classList.toggle('mobile-sb-open');
+        if (bd) bd.classList.toggle('hidden', !open);
+      } else {
+        sh.classList.toggle('focus-mode');
+      }
     }
 
     function showQuickBanner(title, sub, link, zalo) {
@@ -2543,8 +2909,20 @@
         });
       });
 
+      document.getElementById('toggleSidebarBtn').addEventListener('click', toggleSidebarMode);
+      document.getElementById('sbBackdrop').addEventListener('click', closeMobileSidebar);
+
       document.getElementById('wsRound').addEventListener('change', function (e) {
-        S.selectedRound = e.target.value.trim() || 'R1';
+        var val = e.target.value;
+        if (val === '__NEW__') {
+          var custom = prompt('Nhập tên đợt rà soát mới (VD: Q1-2026, Q2-2026):', 'Q1');
+          if (custom && custom.trim()) {
+            S.selectedRound = custom.trim();
+          }
+          renderWorkspace();
+          return;
+        }
+        S.selectedRound = val || 'R1';
         renderWorkspace();
       });
 
@@ -2558,6 +2936,39 @@
       });
       document.getElementById('copyZaloBtn').addEventListener('click', function () {
         copyInstant(getExportByKey('zaloSmart'), 'Đã copy mẫu tin nhắn Zalo', this);
+      });
+      document.getElementById('copyNudgeBtn').addEventListener('click', function () {
+        var c = getClientById(S.selectedClientId);
+        if (!c) return;
+        var ctx = computeClientStageContext(c, S.selectedStage, S.selectedRound);
+        copyInstant(buildNudgeZaloText(c, ctx), 'Đã copy tin nhắn Zalo nhắc điền tiếp', this);
+      });
+      document.getElementById('printStrategyBtn').addEventListener('click', function () {
+        window.print();
+      });
+      document.getElementById('copyStrategyConfirmBtn').addEventListener('click', function () {
+        var c = getClientById(S.selectedClientId);
+        if (!c) return;
+        var revs = (S.snap && S.snap.reviewsByClient && S.snap.reviewsByClient[c.client_id]) || [];
+        var withSum = revs.filter(function (sr) { return sr.approved_summary && sr.approved_summary.trim(); });
+        if (!withSum.length) { showToast('Chưa có bản tóm tắt chốt giai đoạn nào để gửi khách'); return; }
+        var latest = withSum[withSum.length - 1];
+        copyInstant(buildConfirmZaloText(c, latest.stage, latest.approved_summary), 'Đã copy bản chốt GĐ ' + latest.stage + ' gửi khách xác nhận', this);
+      });
+      document.getElementById('copyReviewConfirmBtn').addEventListener('click', function () {
+        var c = getClientById(S.selectedClientId);
+        if (!c) return;
+        var sumTxt = document.getElementById('revSummary').value.trim();
+        if (!sumTxt) { showToast('Anh/chị chưa nhập Tóm tắt chốt giai đoạn'); return; }
+        copyInstant(buildConfirmZaloText(c, S.selectedStage, sumTxt), 'Đã copy bản chốt GĐ ' + S.selectedStage + ' gửi khách xác nhận', this);
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('#noteTagRow .tag-pill'), function (btn) {
+        btn.addEventListener('click', function () {
+          S.selectedNoteTag = btn.getAttribute('data-ntag') || 'RAW';
+          Array.prototype.forEach.call(document.querySelectorAll('#noteTagRow .tag-pill'), function (b) {
+            b.classList.toggle('active', b === btn);
+          });
+        });
       });
       document.getElementById('quickCopyLinkBtn').addEventListener('click', function () {
         copyInstant(S.quickLinkText, 'Đã copy đường link gửi khách', this);

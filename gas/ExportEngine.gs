@@ -46,6 +46,8 @@ function collectClientStageData_(clientId, stage, round, snapshot) {
     if (nRound !== roundStr) return;
     if (parseInt(n.stage, 10) !== stageNum) return;
     var code = String(n.code || '').trim().toUpperCase();
+    var tag = String(n.tag || '').trim().toUpperCase();
+    if (code === 'PREP' || tag === 'PREP') return;
     if (!code || code === 'RAW') {
       rawNotes.push(n);
     } else {

@@ -19,7 +19,7 @@ from pathlib import Path
 src = Path("gas/CommandCenter.html").read_text(encoding="utf-8")
 out = src.replace(
     '  <base target="_top">',
-    '  <!-- Bản Web độc lập (GitHub Pages) đồng bộ tự động từ gas/CommandCenter.html -->'
+    '  <!-- Bản Web độc lập (GitHub Pages) đồng bộ tự động từ gas/CommandCenter.html -->\n  <link rel="manifest" href="manifest.json">\n  <link rel="icon" type="image/svg+xml" href="icon.svg">\n  <meta name="theme-color" content="#0f5257">\n  <meta name="apple-mobile-web-app-capable" content="yes">'
 ).replace(
     '  <!-- Dữ liệu khởi tạo được Apps Script nhúng thẳng lúc mở hộp thoại -> 0ms chờ tải -->\n  <script id="thcn-bootstrap" type="application/json"><?!= initialSnapshotJson ?></script>',
     '  <script src="config.js"></script>'

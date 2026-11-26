@@ -98,6 +98,11 @@
         </ul>
       </div>
 
+      <details id="welcomePrevSummary" class="prev-summary-box hidden">
+        <summary>📌 Xem lại Tóm tắt đã thống nhất ở Giai đoạn trước</summary>
+        <div id="welcomePrevSummaryBody" class="prev-summary-body"></div>
+      </details>
+
       <label class="consent-box" id="consentLabel">
         <input type="checkbox" id="consentCheckbox">
         <span id="consentText"></span>
@@ -118,6 +123,11 @@
 
       <div id="lockedNotice" class="locked-notice hidden">
         🔒 <b>Phần này đã được chốt</b> sau buổi làm việc trước. Anh/chị có thể xem lại câu trả lời của mình nhưng không cần chỉnh sửa thêm.
+      </div>
+
+      <div id="qContextEcho" class="context-echo hidden">
+        <span id="qContextEchoLabel" class="context-echo-label"></span>
+        <p id="qContextEchoText" class="context-echo-text"></p>
       </div>
 
       <h2 id="qTitle" class="question-text"></h2>
@@ -253,6 +263,10 @@
       </div>
       <button id="closeDrawerBtn" class="icon-btn" type="button" aria-label="Đóng mục lục">✕</button>
     </div>
+    <details id="drawerPrevSummary" class="prev-summary-box drawer-prev-summary hidden">
+      <summary>📌 Tóm tắt đã chốt GĐ trước</summary>
+      <div id="drawerPrevSummaryBody" class="prev-summary-body"></div>
+    </details>
     <div id="drawerBody" class="drawer-body"></div>
     <div class="drawer-footer">
       <button id="drawerToReviewBtn" class="btn btn-primary" type="button" style="width:100%;">Đi tới màn Xem lại &amp; Nộp bài</button>

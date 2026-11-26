@@ -934,3 +934,60 @@ html, body {
     max-width: 130px;
   }
 }
+
+
+/* ===== v4: Context Echo & Previous Stage Summary ===== */
+.context-echo {
+  background: #eaf4f4;
+  border: 1px solid rgba(15, 82, 87, 0.2);
+  border-radius: 10px;
+  padding: 10px 13px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+.context-echo-label {
+  display: block;
+  font-weight: 600;
+  color: #0f5257;
+  font-size: 0.8rem;
+  margin-bottom: 3px;
+}
+.context-echo-text {
+  margin: 0;
+  color: #292524;
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+.prev-summary-box {
+  background: #faf9f6;
+  border: 1px solid #e7e5e4;
+  border-radius: 10px;
+  padding: 10px 13px;
+  margin: 12px 0;
+  font-size: 0.88rem;
+}
+.prev-summary-box summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #0f5257;
+  user-select: none;
+}
+.prev-summary-body {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.prev-sum-title {
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: #57534e;
+  margin-bottom: 3px;
+}
+.prev-sum-text {
+  color: #1c1917;
+  line-height: 1.5;
+}
+.drawer-prev-summary {
+  margin: 10px 14px 4px;
+}

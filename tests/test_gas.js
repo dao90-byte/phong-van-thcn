@@ -360,6 +360,31 @@ var adminRlRes = callAdminPost('ccLoadSnapshot', '246810');
 assert(!adminRlRes.ok && adminRlRes.code === 'RATE_LIMITED',
   'Admin rate-limit kích hoạt sau >= 10 lần nhập sai mã PIN');
 
+// 14. v4: PREP brief upsert (no leak to cleanAnswers), explicit Q tag, archived status, approved_summaries in getSession
+var prep1 = ccSaveLiveNotes({ client_id: c1.client_id, stage: 1, round: 'R1', mode: 'coded', code: 'PREP', tag: 'PREP', text: 'Câu xoáy bản 1' });
+var prep2 = ccSaveLiveNotes({ client_id: c1.client_id, stage: 1, round: 'R1', mode: 'coded', code: 'PREP', tag: 'PREP', text: 'Câu xoáy bản 2' });
+var allPrepRows = readTabAsObjects_(TABS.LIVE_NOTES).filter(function (n) {
+  return n.client_id === c1.client_id && String(n.code).toUpperCase() === 'PREP';
+});
+assert(prep1.isPrep && prep2.isPrep && allPrepRows.length === 1 && allPrepRows[0].note === 'Câu xoáy bản 2',
+  'v4: Kịch bản PREP tự ghi đè (upsert), không tạo dòng trùng');
+
+var cleanAfterPrep = buildCleanAnswersText_(c1.client_id, 1, 'R1');
+assert(cleanAfterPrep.indexOf('Câu xoáy bản 2') === -1,
+  'v4: Kịch bản PREP nội bộ không bị lọt vào bản Copy câu trả lời sạch');
+
+var qTagRes = ccSaveLiveNotes({ client_id: c1.client_id, stage: 1, round: 'R1', mode: 'raw', code: 'RAW', tag: 'Q', text: 'Trích dẫn đắt giá của khách' });
+assert(qTagRes.notes && qTagRes.notes[0].tag === 'Q',
+  'v4: Lưu ghi chú hỗ trợ gắn thẻ tường minh [Q]');
+
+var sessV4 = handleGetSession_(findClientById_(c1.client_id), {});
+assert(sessV4.ok && Array.isArray(sessV4.data.approved_summaries) && sessV4.data.approved_summaries.length >= 1,
+  'v4: getSession trả về approved_summaries của giai đoạn đã khóa cho khách xem lại');
+
+var archRes = ccUpdateClient({ client_id: c2.client_id, status: 'archived' });
+assert(archRes.ok && archRes.client && archRes.client.status === 'archived',
+  'v4: ccUpdateClient hỗ trợ trạng thái archived để ẩn khách cũ/test');
+
 print('\n==============================');
-print('GAS v3.3 TESTS: ' + passed + ' passed, ' + failed + ' failed');
-if (failed > 0) throw new Error('GAS v3.3 test suite failed with ' + failed + ' failures');
+print('GAS v4.0 TESTS: ' + passed + ' passed, ' + failed + ' failed');
+if (failed > 0) throw new Error('GAS v4.0 test suite failed with ' + failed + ' failures');

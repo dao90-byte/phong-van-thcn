@@ -96,8 +96,11 @@
       'viewLoading', 'viewError', 'errorIcon', 'errorTitle', 'errorMessage',
       'viewWelcome', 'welcomeGreeting', 'welcomeIntro',
       'welcomeCount', 'welcomeDuration', 'welcomeDeadlineBox', 'welcomeDeadline',
+      'welcomePrevSummary', 'welcomePrevSummaryBody',
+      'drawerPrevSummary', 'drawerPrevSummaryBody',
       'consentCheckbox', 'consentText', 'startBtn',
-      'viewQuestion', 'qCodeBadge', 'lockedNotice', 'qTitle',
+      'viewQuestion', 'qCodeBadge', 'lockedNotice',
+      'qContextEcho', 'qContextEchoLabel', 'qContextEchoText', 'qTitle',
       'qHintBox', 'qHintText', 'qProbesBox', 'qProbesList',
       'answerInput', 'voiceBtn', 'voiceBtnLabel', 'mobileMicTip', 'wordCountLabel', 'voiceStatus',
       'evidenceBox', 'evidenceReason', 'extraInput', 'extraVoiceBtn', 'extraVoiceBtnLabel', 'extraMobileMicTip',
@@ -228,6 +231,7 @@
 
     restoreLocalDraftsAndQueue();
     setupVoiceAvailability();
+    renderPreviousSummaries();
     el.appHeader.classList.remove('hidden');
     updateHeaderProgress();
 
@@ -302,6 +306,49 @@
       });
   }
 
+  function renderPreviousSummaries() {
+    var list = (state.session && state.session.approved_summaries) || [];
+    var prev = list.filter(function (item) { return item.stage < state.activeStage && item.summary; });
+    if (!prev.length) {
+      if (el.welcomePrevSummary) el.welcomePrevSummary.classList.add('hidden');
+      if (el.drawerPrevSummary) el.drawerPrevSummary.classList.add('hidden');
+      return;
+    }
+    var html = prev.map(function (item) {
+      return '<div class="prev-sum-item">' +
+        '<div class="prev-sum-title">Giai đoạn ' + item.stage + '</div>' +
+        '<div class="prev-sum-text">' + escapeHtml(item.summary).replace(/\n/g, '<br>') + '</div>' +
+      '</div>';
+    }).join('');
+    if (el.welcomePrevSummary && el.welcomePrevSummaryBody) {
+      el.welcomePrevSummaryBody.innerHTML = html;
+      el.welcomePrevSummary.classList.remove('hidden');
+    }
+    if (el.drawerPrevSummary && el.drawerPrevSummaryBody) {
+      el.drawerPrevSummaryBody.innerHTML = html;
+      el.drawerPrevSummary.classList.remove('hidden');
+    }
+  }
+
+  function renderContextEcho(q) {
+    if (!el.qContextEcho) return;
+    var refMap = {
+      '2.1.2': { ref: '2.1.1', label: 'Nhóm khách hàng anh/chị đã chọn ở câu 2.1.1:' },
+      '2.1.3': { ref: '2.1.1', label: 'Nhóm khách hàng anh/chị đã chọn ở câu 2.1.1:' },
+      '3.2.2': { ref: '3.2.1', label: 'Tài sản trải nghiệm thử anh/chị nêu ở câu 3.2.1:' }
+    };
+    var cfg = refMap[q.code];
+    var refResp = cfg ? state.responses[cfg.ref] : null;
+    var refText = refResp && String(refResp.answer || '').trim();
+    if (cfg && refText) {
+      el.qContextEchoLabel.textContent = cfg.label;
+      el.qContextEchoText.textContent = refText.length > 260 ? (refText.slice(0, 260) + '...') : refText;
+      el.qContextEcho.classList.remove('hidden');
+    } else {
+      el.qContextEcho.classList.add('hidden');
+    }
+  }
+
   // ==================== QUESTION VIEW ====================
 
   function getCurrentQuestion() {
@@ -331,6 +378,7 @@
     state.usedTypeOnCurrent = resp.input_mode === 'go' || resp.input_mode === 'hon_hop';
 
     el.qCodeBadge.textContent = q.code;
+    renderContextEcho(q);
     el.qTitle.textContent = q.question_self;
 
     if (q.self_hint) {
