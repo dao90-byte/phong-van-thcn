@@ -432,6 +432,9 @@ function constantTimeEqual_(a, b) {
   return diff === 0;
 }
 
+// Băm SHA-256 cài sẵn (để dùng ngay không cần vào Sheet cài tay; có thể đổi bất kỳ lúc nào qua menu Đặt mã PIN)
+var DEFAULT_ADMIN_PIN_HASH = 'tg4kagh7PV-uNwjDKBLECgVwuGj7ZGCxHqTylLnhVx8';
+
 function setAdminPin_(pin) {
   var clean = String(pin === undefined || pin === null ? '' : pin).trim();
   if (clean.length < 4) {
@@ -442,12 +445,18 @@ function setAdminPin_(pin) {
   return true;
 }
 
+function getStoredAdminPinHash_() {
+  var fromProps = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.ADMIN_PIN_HASH);
+  if (fromProps) return fromProps;
+  return DEFAULT_ADMIN_PIN_HASH || '';
+}
+
 function hasAdminPin_() {
-  return Boolean(PropertiesService.getScriptProperties().getProperty(PROP_KEYS.ADMIN_PIN_HASH));
+  return Boolean(getStoredAdminPinHash_());
 }
 
 function verifyAdminPin_(pin) {
-  var stored = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.ADMIN_PIN_HASH);
+  var stored = getStoredAdminPinHash_();
   if (!stored) return false;
   var clean = String(pin === undefined || pin === null ? '' : pin).trim();
   if (!clean) return false;

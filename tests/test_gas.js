@@ -315,9 +315,15 @@ function callAdminPost(adminAction, pin, payload) {
   return JSON.parse(out.getContent());
 }
 
+assert(hasAdminPin_() && Boolean(DEFAULT_ADMIN_PIN_HASH),
+  'Hệ thống có sẵn DEFAULT_ADMIN_PIN_HASH để dùng ngay không cần cài tay trong Sheet');
+
+var savedDefaultPinHash = DEFAULT_ADMIN_PIN_HASH;
+DEFAULT_ADMIN_PIN_HASH = '';
 var noPinRes = callAdminPost('ccLoadSnapshot', '123456');
 assert(!noPinRes.ok && noPinRes.code === 'ADMIN_PIN_NOT_SET',
-  'admin:* chặn truy cập khi chưa cài mã PIN (ADMIN_PIN_NOT_SET)');
+  'admin:* chặn truy cập khi chưa có mã PIN (ADMIN_PIN_NOT_SET)');
+DEFAULT_ADMIN_PIN_HASH = savedDefaultPinHash;
 
 var shortPinErr = false;
 try { setAdminPin_('123'); } catch (e) { shortPinErr = true; }
