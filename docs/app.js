@@ -163,6 +163,18 @@
     });
 
     window.addEventListener('online', function () { flushPendingQueue(); });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') {
+        flushPendingQueue();
+      }
+    });
+    window.addEventListener('beforeunload', function (e) {
+      if (state.inFlightCount > 0 || state.pendingQueue.length > 0) {
+        e.preventDefault();
+        e.returnValue = 'Hệ thống đang lưu câu trả lời của anh/chị. Vui lòng chờ vài giây trước khi đóng trang.';
+        return e.returnValue;
+      }
+    });
     window.addEventListener('offline', function () { setSyncStatus('offline', 'Mất mạng – đang lưu trên máy'); });
   }
 
@@ -1013,7 +1025,7 @@
   function queueOfflineSave(record) {
     state.pendingQueue = Logic.enqueuePendingSave(state.pendingQueue, record);
     saveQueueToLocalStorage();
-    setSyncStatus('offline', 'Lưu trên máy (chờ mạng · ' + state.pendingQueue.length + ')');
+    setSyncStatus('offline', 'Chờ mạng (' + state.pendingQueue.length + ' câu) — giữ trang để tự gửi');
   }
 
   function restoreLocalDraftsAndQueue() {

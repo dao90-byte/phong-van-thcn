@@ -40,6 +40,7 @@ function doPost(e) {
     var token = String(body.token || '').trim();
     return jsonResponse_(dispatchClientAction_(action, token, payload));
   } catch (err) {
+    logEvent_('ERROR', 'SERVER_ERROR', '', '', err && err.message ? err.message : String(err));
     return jsonResponse_({
       ok: false,
       code: 'SERVER_ERROR',
@@ -63,6 +64,7 @@ function dispatchAdminAction_(adminAction, adminPin, payload) {
 
   if (!adminPin || !verifyAdminPin_(adminPin)) {
     recordBadAdminAttempt_();
+    logEvent_('WARN', 'ADMIN_BAD_PIN', '', '', 'action=' + adminAction);
     return { ok: false, code: 'INVALID_PIN', error: 'Mã PIN không đúng. Anh/chị vui lòng kiểm tra lại.' };
   }
 
@@ -86,6 +88,7 @@ function dispatchAdminAction_(adminAction, adminPin, payload) {
         return { ok: false, code: 'UNKNOWN_ADMIN_ACTION', error: 'Hành động quản trị không được hỗ trợ.' };
     }
   } catch (err) {
+    logEvent_('ERROR', 'ADMIN_ERROR', '', '', adminAction + ': ' + (err && err.message ? err.message : String(err)));
     return {
       ok: false,
       code: 'ADMIN_ERROR',
@@ -332,6 +335,7 @@ function handleSaveAnswer_(client, payload) {
 
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) {
+    logEvent_('WARN', 'LOCK_TIMEOUT', client.client_id, targetQuestion.stage, 'saveAnswer:' + code);
     return { ok: false, code: 'LOCK_TIMEOUT', error: 'Hệ thống đang xử lý nhiều yêu cầu, câu trả lời được giữ trên máy và sẽ tự gửi lại.' };
   }
   try {
@@ -364,6 +368,7 @@ function handleSubmitStage_(client, payload) {
   var ts = nowIso_();
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) {
+    logEvent_('WARN', 'LOCK_TIMEOUT', client.client_id, stage, 'submitStage');
     return { ok: false, code: 'LOCK_TIMEOUT', error: 'Hệ thống đang bận, anh/chị vui lòng bấm gửi lại.' };
   }
   try {
@@ -381,12 +386,20 @@ function handleSubmitStage_(client, payload) {
     lock.releaseLock();
   }
 
-  // Tự động gửi Email thông báo + toàn bộ câu trả lời sạch về cho chuyên gia (không làm gián đoạn nộp bài nếu lỗi quota)
+  // Tự động gửi Email thông báo + toàn bộ câu trả lời sạch về cho chuyên gia (ghi EventLog nếu lỗi để chống nuốt lỗi im lặng)
   var emailSent = false;
+  var emailErrMsg = '';
   try {
     emailSent = sendSubmitNotificationEmail_(client, stage, round);
   } catch (mailErr) {
     emailSent = false;
+    emailErrMsg = mailErr && mailErr.message ? mailErr.message : String(mailErr);
+  }
+
+  if (!emailSent) {
+    logEvent_('ERROR', 'EMAIL_FAILED', client.client_id, stage, emailErrMsg || 'MailApp skipped or failed');
+  } else {
+    logEvent_('INFO', 'STAGE_SUBMITTED', client.client_id, stage, 'email=true');
   }
 
   return {

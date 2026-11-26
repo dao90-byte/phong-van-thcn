@@ -180,10 +180,10 @@ ccUpdateClient({ client_id: 'C001', status: 'closed' });
 var closedRes = callPost('getSession', c1.token);
 assert(closedRes.ok === false && closedRes.code === 'SESSION_CLOSED', 'Đóng link qua ccUpdateClient chặn truy cập ngay lập tức');
 
-for (var b = 0; b < 10; b++) runWeeklyBackup();
+for (var b = 0; b < 16; b++) runDailyBackup();
 var bFolderId = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.BACKUP_FOLDER_ID);
 var activeBackups = env.driveFolders[bFolderId]._files.filter(function (f) { return !f._trashed; });
-assert(activeBackups.length === 8, 'Weekly Backup tự dọn giữ đúng 8 bản mới nhất');
+assert(activeBackups.length === 14, 'Daily Backup tự dọn giữ đúng 14 bản mới nhất');
 
 var rateHit = false;
 for (var k = 0; k < 25; k++) {
@@ -384,6 +384,40 @@ assert(sessV4.ok && Array.isArray(sessV4.data.approved_summaries) && sessV4.data
 var archRes = ccUpdateClient({ client_id: c2.client_id, status: 'archived' });
 assert(archRes.ok && archRes.client && archRes.client.status === 'archived',
   'v4: ccUpdateClient hỗ trợ trạng thái archived để ẩn khách cũ/test');
+
+// 15. Socio-Technical Hardening: EventLog chống nuốt lỗi Email, ghi nhận LOCK_TIMEOUT, bỏ qua dòng checkbox trống
+var origSendEmail = MailApp.sendEmail;
+MailApp.sendEmail = function () { throw new Error('Service invoked too many times for one day: email'); };
+var c3 = ccCreateClient({ name: 'Test Stress', field: 'Coaching', template: 'chuan' });
+var subFailEmail = handleSubmitStage_(findClientById_(c3.client_id), { stage: 1, round: 'R1' });
+MailApp.sendEmail = origSendEmail;
+var logsAfterEmailFail = readTabAsObjects_(TABS.EVENT_LOG);
+var hasEmailFailLog = logsAfterEmailFail.some(function (l) {
+  return l.event === 'EMAIL_FAILED' && l.client_id === c3.client_id && String(l.detail).indexOf('email') !== -1;
+});
+assert(subFailEmail.ok && subFailEmail.data.email_notified === false && hasEmailFailLog,
+  'Hardening: Lỗi gửi Email không còn bị nuốt im lặng, được ghi đầy đủ vào EventLog');
+
+var origGetLock = LockService.getScriptLock;
+LockService.getScriptLock = function () {
+  return { tryLock: function () { return false; }, releaseLock: function () {} };
+};
+var lockFailRes = handleSaveAnswer_(findClientById_(c3.client_id), { code: '1.1.5', answer: 'Test lock' });
+LockService.getScriptLock = origGetLock;
+var logsAfterLockFail = readTabAsObjects_(TABS.EVENT_LOG);
+var hasLockLog = logsAfterLockFail.some(function (l) {
+  return l.event === 'LOCK_TIMEOUT' && l.client_id === c3.client_id;
+});
+assert(!lockFailRes.ok && lockFailRes.code === 'LOCK_TIMEOUT' && hasLockLog,
+  'Hardening: Tranh chấp khóa LOCK_TIMEOUT được ghi nhận vào EventLog');
+
+// Kiểm tra readTabAsObjects_ bỏ qua dòng checkbox toàn false (chống dòng bóng ma StageReviews)
+var srSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TABS.STAGE_REVIEWS);
+var beforeGhostCount = readTabAsObjects_(TABS.STAGE_REVIEWS).length;
+srSheet.getRange(srSheet.getLastRow() + 1, 1, 1, 10).setValues([['', '', '', '', false, false, false, false, '', '']]);
+var afterGhostCount = readTabAsObjects_(TABS.STAGE_REVIEWS).length;
+assert(afterGhostCount === beforeGhostCount,
+  'Hardening: readTabAsObjects_ tự bỏ qua dòng trống chỉ có checkbox FALSE trên StageReviews');
 
 print('\n==============================');
 print('GAS v4.0 TESTS: ' + passed + ' passed, ' + failed + ' failed');
