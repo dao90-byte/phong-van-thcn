@@ -18,7 +18,8 @@ function setupWorkbook() {
     TABS.CLIENTS,
     TABS.RESPONSES,
     TABS.LIVE_NOTES,
-    TABS.STAGE_REVIEWS
+    TABS.STAGE_REVIEWS,
+    TABS.EVENT_LOG
   ];
 
   dataTabs.forEach(function (tabName) {
@@ -44,7 +45,7 @@ function setupWorkbook() {
   });
 
   // Cảnh báo sửa tay (warning-only) cho các tab dữ liệu thô
-  [TABS.RESPONSES, TABS.LIVE_NOTES, TABS.STAGE_REVIEWS].forEach(function (tName) {
+  [TABS.RESPONSES, TABS.LIVE_NOTES, TABS.STAGE_REVIEWS, TABS.EVENT_LOG].forEach(function (tName) {
     protectWarningOnly_(ss.getSheetByName(tName), 'THCN_GUARD_' + tName.toUpperCase());
   });
 

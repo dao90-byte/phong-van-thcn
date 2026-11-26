@@ -13,7 +13,8 @@ var TABS = {
   CLIENTS: 'Clients',
   RESPONSES: 'Responses',
   LIVE_NOTES: 'LiveNotes',
-  STAGE_REVIEWS: 'StageReviews'
+  STAGE_REVIEWS: 'StageReviews',
+  EVENT_LOG: 'EventLog'
 };
 
 // Thứ tự & màu sắc 3 vùng tab khoa học trong Google Sheets
@@ -25,7 +26,8 @@ var TAB_ORDER = [
   TABS.CLIENTS,
   TABS.RESPONSES,
   TABS.LIVE_NOTES,
-  TABS.STAGE_REVIEWS
+  TABS.STAGE_REVIEWS,
+  TABS.EVENT_LOG
 ];
 
 var TAB_COLORS = {
@@ -36,7 +38,8 @@ var TAB_COLORS = {
   Clients: '#78716C',       // Vùng 3: Kho dữ liệu thô (Xám)
   Responses: '#78716C',
   LiveNotes: '#78716C',
-  StageReviews: '#78716C'
+  StageReviews: '#78716C',
+  EventLog: '#78716C'
 };
 
 var SCHEMAS = {
@@ -67,6 +70,9 @@ var SCHEMAS = {
   ],
   Config: [
     'key', 'value', 'note'
+  ],
+  EventLog: [
+    'timestamp', 'level', 'event', 'client_id', 'stage', 'detail'
   ]
 };
 
@@ -78,7 +84,8 @@ var PLAIN_TEXT_COLUMNS = {
   Responses: ['client_id', 'round', 'code', 'flags', 'matched_vague', 'updated_at'],
   LiveNotes: ['client_id', 'round', 'code', 'tag', 'created_at'],
   StageReviews: ['client_id', 'round', 'submitted_at'],
-  Config: ['key', 'value']
+  Config: ['key', 'value'],
+  EventLog: ['timestamp', 'level', 'event', 'client_id']
 };
 
 var DEFAULT_ROUND = 'R1';
@@ -182,7 +189,7 @@ function readTabAsObjects_(sheetName) {
       var key = headers[c];
       if (!key) continue;
       var val = rowArr[c];
-      if (val !== '' && val !== null && val !== undefined) hasAny = true;
+      if (val !== '' && val !== null && val !== undefined && val !== false) hasAny = true;
       obj[key] = val;
     }
     if (hasAny) rows.push(obj);
@@ -627,4 +634,37 @@ function safeJsonForHtml_(obj) {
     .replace(/&/g, '\\u0026')
     .replace(/\u2028/g, '\\u2028')
     .replace(/\u2029/g, '\\u2029');
+}
+
+var EVENT_LOG_MAX_ROWS = 2000;
+
+/**
+ * Ghi nhật ký sự kiện / sự cố vào tab EventLog (append-only, tự dọn giữ tối đa 2.000 dòng).
+ * Luôn bọc try/catch để tuyệt đối không làm gián đoạn luồng chính của khách hàng.
+ */
+function logEvent_(level, eventName, clientId, stage, detail) {
+  try {
+    var ss = getActiveSpreadsheet_();
+    if (!ss) return;
+    var sheet = ss.getSheetByName(TABS.EVENT_LOG);
+    if (!sheet) {
+      sheet = ss.insertSheet(TABS.EVENT_LOG);
+      sheet.getRange(1, 1, 1, SCHEMAS.EventLog.length).setValues([SCHEMAS.EventLog]);
+      sheet.setFrozenRows(1);
+    }
+    var row = [
+      nowIso_(),
+      String(level || 'INFO').toUpperCase(),
+      String(eventName || 'EVENT'),
+      String(clientId || ''),
+      stage !== undefined && stage !== null && stage !== '' ? String(stage) : '',
+      String(detail || '').slice(0, 500)
+    ];
+    var nextRow = Math.max(sheet.getLastRow(), 1) + 1;
+    sheet.getRange(nextRow, 1, 1, row.length).setValues([row]);
+    var lastRow = sheet.getLastRow();
+    if (lastRow > EVENT_LOG_MAX_ROWS + 1 && typeof sheet.deleteRows === 'function') {
+      sheet.deleteRows(2, Math.min(200, lastRow - EVENT_LOG_MAX_ROWS - 1));
+    }
+  } catch (e) {}
 }

@@ -5,7 +5,7 @@
  */
 
 var BACKUP_FOLDER_NAME = 'Backup_THCN';
-var BACKUP_KEEP_COUNT = 8;
+var BACKUP_KEEP_COUNT = 14;
 
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
@@ -15,7 +15,7 @@ function onOpen() {
     .addItem('Kiểm tra / Nâng cấp cấu trúc Sheet', 'menuRunSetup')
     .addItem('Cài đặt URL trang khách (GitHub Pages)', 'menuSetClientAppUrl')
     .addItem('Làm mới bộ nhớ đệm (Clear Cache)', 'menuClearCache')
-    .addItem('Bật sao lưu tự động hàng tuần', 'menuInstallBackup');
+    .addItem('Bật sao lưu tự động hàng ngày (02:00)', 'menuInstallBackup');
 
   ui.createMenu('⚙️ Tư vấn THCN')
     .addItem('🎛️ Mở Trung tâm Điều khiển', 'menuOpenCommandCenter')
@@ -104,32 +104,43 @@ function menuSetAdminPin() {
 }
 
 function menuInstallBackup() {
-  installWeeklyBackupTrigger();
-  var sample = runWeeklyBackup();
+  installDailyBackupTrigger();
+  var sample = runDailyBackup();
   SpreadsheetApp.getUi().alert(
-    'Đã bật sao lưu tự động',
-    'Hệ thống sẽ tự sao lưu file Sheet vào 02:00 sáng Chủ nhật hàng tuần trong thư mục "' + sample.folderName + '" (tự dọn giữ 8 bản gần nhất).\n\nĐã tạo sẵn bản sao lưu đầu tiên: ' + sample.fileName,
+    'Đã bật sao lưu tự động hàng ngày',
+    'Hệ thống sẽ tự sao lưu file Sheet vào 02:00 sáng hàng ngày trong thư mục "' + sample.folderName + '" (tự dọn giữ 14 bản gần nhất).\n\nĐã tạo sẵn bản sao lưu đầu tiên: ' + sample.fileName,
     SpreadsheetApp.getUi().ButtonSet.OK
   );
 }
 
+function runDailyBackup() {
+  try {
+    var ss = getActiveSpreadsheet_();
+    var props = PropertiesService.getScriptProperties();
+    var folder = getOrCreateBackupFolder_(props);
+
+    var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd_HHmm');
+    var backupName = ss.getName() + '_BACKUP_' + stamp;
+    var sourceFile = DriveApp.getFileById(ss.getId());
+    var copied = sourceFile.makeCopy(backupName, folder);
+
+    pruneOldBackups_(folder, BACKUP_KEEP_COUNT);
+    logEvent_('INFO', 'BACKUP_OK', '', '', backupName);
+
+    return {
+      fileId: copied.getId(),
+      fileName: backupName,
+      folderName: folder.getName()
+    };
+  } catch (err) {
+    logEvent_('ERROR', 'BACKUP_FAILED', '', '', err && err.message ? err.message : String(err));
+    throw err;
+  }
+}
+
+// Giữ tên hàm cũ để tương thích ngược với trigger hoặc kiểm thử hiện có
 function runWeeklyBackup() {
-  var ss = getActiveSpreadsheet_();
-  var props = PropertiesService.getScriptProperties();
-  var folder = getOrCreateBackupFolder_(props);
-
-  var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd_HHmm');
-  var backupName = ss.getName() + '_BACKUP_' + stamp;
-  var sourceFile = DriveApp.getFileById(ss.getId());
-  var copied = sourceFile.makeCopy(backupName, folder);
-
-  pruneOldBackups_(folder, BACKUP_KEEP_COUNT);
-
-  return {
-    fileId: copied.getId(),
-    fileName: backupName,
-    folderName: folder.getName()
-  };
+  return runDailyBackup();
 }
 
 function getOrCreateBackupFolder_(props) {
@@ -156,16 +167,21 @@ function pruneOldBackups_(folder, keepCount) {
   }
 }
 
-function installWeeklyBackupTrigger() {
+function installDailyBackupTrigger() {
   var triggers = ScriptApp.getProjectTriggers();
   triggers.forEach(function (t) {
-    if (t.getHandlerFunction() === 'runWeeklyBackup') {
+    var fn = t.getHandlerFunction();
+    if (fn === 'runWeeklyBackup' || fn === 'runDailyBackup') {
       ScriptApp.deleteTrigger(t);
     }
   });
-  ScriptApp.newTrigger('runWeeklyBackup')
+  ScriptApp.newTrigger('runDailyBackup')
     .timeBased()
-    .onWeekDay(ScriptApp.WeekDay.SUNDAY)
+    .everyDays(1)
     .atHour(2)
     .create();
+}
+
+function installWeeklyBackupTrigger() {
+  return installDailyBackupTrigger();
 }
