@@ -428,7 +428,8 @@ function ccUpdateClient(input) {
     patch.stages_locked = lockArr.join('|');
   }
   if (input.status !== undefined) {
-    patch.status = String(input.status).trim().toLowerCase() === 'closed' ? 'closed' : 'active';
+    var stVal = String(input.status).trim().toLowerCase();
+    patch.status = (stVal === 'closed' || stVal === 'archived') ? stVal : 'active';
   }
 
   var lock = LockService.getScriptLock();
@@ -456,12 +457,51 @@ function ccSaveLiveNotes(input) {
   var mode = String((input && input.mode) || 'raw').trim();
   var text = String((input && input.text) || '').trim();
   var code = String((input && input.code) || 'RAW').trim();
+  var explicitTag = String((input && input.tag) || '').trim().toUpperCase();
+  if (['F', 'A', 'G', 'Q', 'PREP', 'RAW'].indexOf(explicitTag) === -1) explicitTag = '';
 
   if (!clientId) throw new Error('Vui lòng chọn khách hàng.');
   if (!text) throw new Error('Vui lòng nhập nội dung ghi chú.');
 
   var rowsToAdd = [];
   var ts = nowIso_();
+  var isPrep = code.toUpperCase() === 'PREP' || explicitTag === 'PREP';
+
+  if (isPrep) {
+    var prepRec = {
+      client_id: clientId,
+      round: roundStr,
+      stage: stageNum,
+      code: 'PREP',
+      tag: 'PREP',
+      note: text,
+      created_at: ts
+    };
+    var prepLock = LockService.getScriptLock();
+    prepLock.waitLock(10000);
+    try {
+      upsertRowByHeader_(TABS.LIVE_NOTES, prepRec, function (row) {
+        return String(row.client_id || '').trim() === clientId &&
+          (String(row.round || DEFAULT_ROUND).trim() || DEFAULT_ROUND) === roundStr &&
+          parseInt(row.stage, 10) === stageNum &&
+          String(row.code || '').trim().toUpperCase() === 'PREP';
+      });
+    } finally {
+      prepLock.releaseLock();
+    }
+    return {
+      added: 1,
+      isPrep: true,
+      notes: [{
+        round: prepRec.round,
+        stage: prepRec.stage,
+        code: prepRec.code,
+        tag: prepRec.tag,
+        note: prepRec.note,
+        created_at: prepRec.created_at
+      }]
+    };
+  }
 
   if (mode === 'raw' || code.toUpperCase() === 'RAW') {
     rowsToAdd.push({
@@ -469,16 +509,16 @@ function ccSaveLiveNotes(input) {
       round: roundStr,
       stage: stageNum,
       code: 'RAW',
-      tag: 'RAW',
+      tag: explicitTag || 'RAW',
       note: text,
       created_at: ts
     });
   } else {
     var lines = text.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
     lines.forEach(function (line) {
-      var tag = 'RAW';
+      var tag = explicitTag || 'RAW';
       var content = line;
-      var m = line.match(/^([fagFAG])\s*[:：]\s*(.+)$/);
+      var m = line.match(/^([fagqFAGQ])\s*[:：]\s*(.+)$/);
       if (m) {
         tag = m[1].toUpperCase();
         content = m[2].trim();

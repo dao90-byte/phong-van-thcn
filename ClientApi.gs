@@ -10,7 +10,7 @@ function doGet() {
     ok: true,
     data: {
       service: 'THCN Interview API',
-      version: '3.3',
+      version: '4.0',
       note: 'Sử dụng POST text/plain với JSON payload.'
     }
   });
@@ -183,14 +183,20 @@ function handleGetSession_(client, payload) {
   });
 
   var submittedStages = {};
+  var approvedSummaries = [];
   readTabAsObjects_(TABS.STAGE_REVIEWS).forEach(function (sr) {
     if (String(sr.client_id || '').trim() !== client.client_id) return;
     var rowRound = String(sr.round || DEFAULT_ROUND).trim() || DEFAULT_ROUND;
-    if (rowRound !== round) return;
-    if (String(sr.submitted_at || '').trim()) {
-      submittedStages[String(parseInt(sr.stage, 10))] = String(sr.submitted_at).trim();
+    var stNum = parseInt(sr.stage, 10) || 1;
+    if (rowRound === round && String(sr.submitted_at || '').trim()) {
+      submittedStages[String(stNum)] = String(sr.submitted_at).trim();
+    }
+    var sumTxt = String(sr.approved_summary || '').trim();
+    if (sumTxt && client.stages_locked.indexOf(stNum) !== -1) {
+      approvedSummaries.push({ stage: stNum, round: rowRound, summary: sumTxt });
     }
   });
+  approvedSummaries.sort(function (a, b) { return a.stage - b.stage; });
 
   var currentConsentVersion = bundle.config.consent_version || 'v1.0';
   var hasConsented = Boolean(client.consent_at) && client.consent_version === currentConsentVersion;
@@ -216,6 +222,7 @@ function handleGetSession_(client, payload) {
       questions: safeQuestions,
       responses: responsesMap,
       submitted_stages: submittedStages,
+      approved_summaries: approvedSummaries,
       config: {
         vague_words: parsePipeList_(bundle.config.vague_words),
         consent_version: currentConsentVersion,
