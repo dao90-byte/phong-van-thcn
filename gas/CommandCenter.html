@@ -259,6 +259,8 @@
     .q-head-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
     .q-tag { font-size: 11px; color: var(--muted); white-space: nowrap; }
     .q-tag.live { color: var(--accent); background: var(--accent-soft); padding: 1px 7px; border-radius: 999px; font-weight: 600; }
+    .q-tag.live-done { color: var(--green); background: var(--green-bg); border: 1px solid var(--green-border); padding: 1px 7px; border-radius: 999px; font-weight: 600; }
+    .q-tag.missing { color: var(--amber); background: var(--amber-bg); border: 1px solid var(--amber-border); padding: 1px 7px; border-radius: 999px; font-weight: 600; }
 
     .q-ans {
       white-space: pre-wrap; padding: 9px 12px; border-radius: 7px; background: var(--bg);
@@ -275,6 +277,54 @@
     .flag-chip {
       font-size: 11px; font-weight: 600; color: var(--amber); background: var(--amber-bg);
       border: 1px solid var(--amber-border); padding: 1px 7px; border-radius: 999px;
+    }
+
+    /* Inline Answer Editor & Live Interview Mode */
+    .q-edit-box { margin-top: 6px; }
+    .q-edit-ta, .live-ta {
+      width: 100%; min-height: 88px; padding: 9px 11px; border: 1px solid var(--border-strong);
+      border-radius: 8px; font-family: inherit; font-size: 13.2px; line-height: 1.55;
+      color: var(--ink); background: #fff; resize: vertical;
+    }
+    .q-edit-ta:focus, .live-ta:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(15, 82, 87, 0.1); }
+    .q-edit-extra-ta { min-height: 62px; margin-top: 4px; background: var(--amber-bg); border-color: var(--amber-border); }
+    .q-edit-bar, .live-foot {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 8px;
+    }
+    .q-edit-left, .q-edit-right, .live-foot-left, .live-foot-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+    .live-banner {
+      background: var(--accent-soft); border: 1px solid rgba(15, 82, 87, 0.2); border-radius: 9px;
+      padding: 9px 13px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+      font-size: 12.3px; color: var(--accent);
+    }
+    .live-banner strong { font-weight: 700; }
+    .voice-warn {
+      background: var(--amber-bg); border: 1px solid var(--amber-border); color: #92400e;
+      border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; font-size: 12px; line-height: 1.45;
+    }
+    .live-probes {
+      margin: 4px 0 8px; font-size: 12px; color: var(--ink2);
+      background: var(--subtle); border-radius: 7px; padding: 6px 10px;
+    }
+    .live-probes summary { cursor: pointer; font-weight: 600; color: var(--accent); user-select: none; }
+    .live-probes ul { margin: 5px 0 2px; padding-left: 18px; }
+    .live-probes li { margin-bottom: 2px; }
+
+    .voice-btn { color: var(--accent); border-color: rgba(15, 82, 87, 0.35); background: var(--surface); }
+    .voice-btn:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
+    .voice-btn.recording {
+      background: #fef2f2; color: var(--red); border-color: #fca5a5;
+      box-shadow: 0 0 0 2px rgba(185, 28, 28, 0.12);
+    }
+    .rec-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--red); display: inline-block;
+      animation: recPulse 1.1s ease-in-out infinite;
+    }
+    @keyframes recPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.8); } }
+    .voice-interim {
+      margin-top: 5px; padding: 5px 9px; border-radius: 6px; background: #fef2f2;
+      border: 1px dashed #fca5a5; color: #991b1b; font-size: 12px; line-height: 1.4;
     }
 
     /* Panels & Forms (Tabs 2, 3, 4) */
@@ -529,8 +579,8 @@
             <div class="ans-bar">
               <div class="chip-row">
                 <button class="chip active" data-ansfilter="self" type="button" id="fltSelfBtn">Tự điền</button>
-                <button class="chip" data-ansfilter="attention" type="button" id="fltAttnBtn">Cần lưu ý</button>
-                <button class="chip" data-ansfilter="all" type="button" id="fltAllBtn">Gồm câu trực tiếp</button>
+                <button class="chip" data-ansfilter="attention" type="button" id="fltAttnBtn">Lưu ý</button>
+                <button class="chip" data-ansfilter="live" type="button" id="fltLiveBtn">Trực tiếp</button>
               </div>
               <span id="ansStatsText" class="ans-stats"></span>
             </div>
@@ -744,7 +794,18 @@
       quickZaloText: '',
       quickLinkText: '',
       previewKey: 'cleanAnswers',
-      currentGroups: []
+      currentGroups: [],
+      editingCode: '',
+      liveDrafts: {},
+      voice: {
+        activeCode: '',
+        targetId: '',
+        rec: null,
+        baseText: '',
+        finalText: '',
+        usedByKey: {},
+        blocked: false
+      }
     };
 
     // ==================== SERVER BRIDGE ====================
@@ -926,16 +987,21 @@
       ];
 
       ctx.outputOrder.forEach(function (outName) {
-        var selfQs = ctx.byOutput[outName].filter(function (q) { return q.mode !== 'live'; });
-        if (!selfQs.length) return;
+        var exportQs = ctx.byOutput[outName].filter(function (q) {
+          if (q.mode !== 'live') return true;
+          var lr = ctx.stageResponses[q.code];
+          return Boolean(lr && lr.answer && lr.answer.trim());
+        });
+        if (!exportQs.length) return;
         lines.push('════════════════════════════════════════');
         lines.push('ĐẦU RA: ' + outName.toUpperCase());
         lines.push('════════════════════════════════════════');
         lines.push('');
 
-        selfQs.forEach(function (q) {
+        exportQs.forEach(function (q) {
           var resp = ctx.stageResponses[q.code];
-          lines.push('[' + q.code + '] ' + interpolateVars(q.question_self || q.question_live, interpClient));
+          var qText = interpolateVars(q.mode === 'live' ? (q.question_live || q.question_self) : (q.question_self || q.question_live), interpClient);
+          lines.push('[' + q.code + ']' + (q.mode === 'live' ? ' (Trực tiếp)' : '') + ' ' + qText);
           if (resp && resp.answer && resp.answer.trim()) {
             lines.push('Trả lời: ' + resp.answer.trim());
             if (resp.answer_extra && resp.answer_extra.trim()) {
@@ -1056,6 +1122,13 @@
               }
             } else {
               lines.push('- Trả lời tự điền: *(khách chưa trả lời)*');
+            }
+          } else if (resp && resp.answer && resp.answer.trim()) {
+            lines.push('- Trả lời phỏng vấn trực tiếp:');
+            lines.push(toBlockquote(resp.answer));
+            if (resp.answer_extra && resp.answer_extra.trim()) {
+              lines.push('- Dẫn chứng bổ sung:');
+              lines.push(toBlockquote(resp.answer_extra));
             }
           } else if (exportType === 'preread') {
             lines.push('- Ghi chú chuẩn bị: *(câu hỏi trực tiếp – chưa hỏi khách)*');
@@ -1283,6 +1356,8 @@
           var cid = btn.getAttribute('data-cid');
           var st = parseInt(btn.getAttribute('data-stage'), 10) || 1;
           if (cid === S.selectedClientId && st === S.selectedStage) return;
+          stopVoiceRecording(true);
+          S.editingCode = '';
           S.selectedClientId = cid;
           S.selectedStage = st;
           S.selectedRound = 'R1';
@@ -1341,30 +1416,233 @@
       renderSettingsPane(client);
     }
 
+    function countWordsLocal(text) {
+      var s = String(text || '').trim();
+      return s ? s.split(/\s+/).length : 0;
+    }
+
+    function draftKeyFor(code) {
+      return S.selectedClientId + ':' + S.selectedStage + ':' + S.selectedRound + ':' + code;
+    }
+
+    function micSvg() {
+      return '<svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+    }
+
+    function stopVoiceRecording(silent) {
+      var v = S.voice;
+      if (v.rec) {
+        var r = v.rec;
+        v.rec = null;
+        try { r.onend = null; r.onerror = null; r.onresult = null; r.stop(); } catch (e) {}
+      }
+      var prevCode = v.activeCode;
+      v.activeCode = '';
+      v.targetId = '';
+      v.baseText = '';
+      v.finalText = '';
+      if (prevCode) {
+        updateVoiceButtonVisual(prevCode, false, '');
+        if (!silent) showToast('Đã dừng thu âm câu ' + prevCode);
+      }
+    }
+
+    function updateVoiceButtonVisual(code, isRec, interimText) {
+      var btns = document.querySelectorAll('[data-voice="' + code + '"]');
+      Array.prototype.forEach.call(btns, function (b) {
+        b.classList.toggle('recording', isRec);
+        b.innerHTML = isRec
+          ? '<span class="rec-dot"></span><span>Dừng nói</span>'
+          : (micSvg() + '<span>Nói</span>');
+      });
+      var interims = document.querySelectorAll('[data-interim="' + code + '"]');
+      Array.prototype.forEach.call(interims, function (el) {
+        if (isRec) {
+          el.classList.remove('hidden');
+          el.textContent = interimText ? ('Đang thu âm: ' + interimText) : 'Đang thu âm... Hãy nói trực tiếp, bấm Dừng nói khi xong.';
+        } else {
+          el.classList.add('hidden');
+          el.textContent = '';
+        }
+      });
+    }
+
+    function toggleVoiceForField(code, taEl) {
+      if (!taEl) return;
+      if (S.voice.activeCode === code) {
+        stopVoiceRecording(false);
+        return;
+      }
+      stopVoiceRecording(true);
+
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        S.voice.blocked = true;
+        showToast('Trình duyệt này chưa hỗ trợ thu âm trực tiếp — anh/chị có thể dùng Micro hệ thống (Fn+Fn / Win+H)');
+        var c = getClientById(S.selectedClientId);
+        if (c && S.ansFilter === 'live') renderAnswersPane(computeClientStageContext(c, S.selectedStage, S.selectedRound));
+        return;
+      }
+
+      var rec = new SR();
+      rec.lang = 'vi-VN';
+      rec.continuous = true;
+      rec.interimResults = true;
+
+      S.voice.activeCode = code;
+      S.voice.rec = rec;
+      S.voice.baseText = taEl.value ? (taEl.value.trimEnd() + ' ') : '';
+      S.voice.finalText = '';
+      S.voice.usedByKey[draftKeyFor(code)] = true;
+      updateVoiceButtonVisual(code, true, '');
+      taEl.focus();
+
+      rec.onresult = function (evt) {
+        var interim = '';
+        var finalChunk = '';
+        for (var i = evt.resultIndex; i < evt.results.length; i++) {
+          var tr = evt.results[i][0].transcript;
+          if (evt.results[i].isFinal) finalChunk += tr + ' ';
+          else interim += tr;
+        }
+        if (finalChunk) {
+          S.voice.finalText += finalChunk;
+          taEl.value = (S.voice.baseText + S.voice.finalText).replace(/\s+$/, '');
+          S.liveDrafts[draftKeyFor(code)] = taEl.value;
+          var wcEl = document.querySelector('[data-wc="' + code + '"]');
+          if (wcEl) wcEl.textContent = countWordsLocal(taEl.value) + ' từ';
+        }
+        updateVoiceButtonVisual(code, true, interim.trim());
+      };
+
+      rec.onerror = function (evt) {
+        var err = evt && evt.error ? evt.error : 'unknown';
+        stopVoiceRecording(true);
+        if (err === 'not-allowed' || err === 'service-not-allowed' || err === 'audio-capture') {
+          S.voice.blocked = true;
+          showToast('Trình duyệt hoặc khung Google Sheets đang chặn Micro — dùng Fn+Fn (Mac) / Win+H (Win) để nói');
+          var c = getClientById(S.selectedClientId);
+          if (c && S.ansFilter === 'live') renderAnswersPane(computeClientStageContext(c, S.selectedStage, S.selectedRound));
+        } else if (err === 'no-speech') {
+          showToast('Chưa nghe thấy giọng nói — anh/chị bấm Nói để thử lại');
+        } else if (err !== 'aborted') {
+          showToast('Lỗi thu âm (' + err + ') — anh/chị thử bấm lại');
+        }
+      };
+
+      rec.onend = function () {
+        if (S.voice.activeCode === code) {
+          stopVoiceRecording(true);
+        }
+      };
+
+      try {
+        rec.start();
+      } catch (e) {
+        stopVoiceRecording(true);
+        S.voice.blocked = true;
+        showToast('Không mở được Micro trong khung này — dùng phím Micro hệ thống (Fn+Fn / Win+H)');
+      }
+    }
+
+    function upsertLocalResponse(cid, rec) {
+      if (!S.snap.responsesByClient[cid]) S.snap.responsesByClient[cid] = [];
+      var list = S.snap.responsesByClient[cid];
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].code === rec.code && (list[i].round || 'R1') === (rec.round || 'R1')) {
+          list[i] = rec;
+          return;
+        }
+      }
+      list.push(rec);
+    }
+
+    function saveResponseFromUi(code, answerVal, extraVal, btnEl, isLiveFlow) {
+      var ans = String(answerVal || '').trim();
+      var ext = String(extraVal || '').trim();
+      if (isLiveFlow && !ans) {
+        showToast('Anh/chị chưa nhập hoặc nói nội dung cho câu ' + code);
+        return;
+      }
+      if (S.voice.activeCode === code) stopVoiceRecording(true);
+
+      var dk = draftKeyFor(code);
+      var usedVoice = Boolean(S.voice.usedByKey[dk]);
+      var inputMode = usedVoice ? 'noi' : 'go';
+
+      var origText = btnEl ? btnEl.textContent : '';
+      if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Đang lưu...'; }
+
+      callServer('ccSaveResponse', [{
+        client_id: S.selectedClientId,
+        stage: S.selectedStage,
+        round: S.selectedRound,
+        code: code,
+        answer: ans,
+        answer_extra: ext,
+        input_mode: inputMode
+      }], function (res) {
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = origText; }
+        if (res && res.response) {
+          upsertLocalResponse(S.selectedClientId, res.response);
+        }
+        delete S.liveDrafts[dk];
+        delete S.voice.usedByKey[dk];
+        if (!isLiveFlow && S.editingCode === code) S.editingCode = '';
+        recomputeClientSummaries();
+        renderClientList();
+        renderWorkspace();
+        showToast(isLiveFlow
+          ? ('Đã lưu câu ' + code + ' — xem/sửa lại tại mục Tự điền')
+          : ('Đã cập nhật câu ' + code + ' — bản Copy đã tự đồng bộ'));
+      }, function (e) {
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = origText; }
+        showToast('Lỗi lưu câu ' + code + ': ' + (e && e.message ? e.message : e));
+      });
+    }
+
     function renderAnswersPane(ctx) {
+      var selfCount = 0;
       var attnCount = 0;
-      ctx.selfEligible.forEach(function (q) {
+      var liveUnansweredCount = 0;
+      var liveAnsweredCount = 0;
+
+      ctx.resolved.questions.forEach(function (q) {
         var r = ctx.stageResponses[q.code];
-        if (!r || !r.answer || !r.answer.trim() || (r.flags && r.flags.length)) attnCount++;
+        var hasAns = Boolean(r && r.answer && r.answer.trim());
+        if (q.mode !== 'live' || hasAns) selfCount++;
+        if (q.mode === 'live' && hasAns) liveAnsweredCount++;
+        if (r && r.flags && r.flags.length) attnCount++;
+        if (!hasAns) liveUnansweredCount++;
       });
 
-      document.getElementById('fltSelfBtn').textContent = 'Tự điền (' + ctx.selfEligible.length + ')';
-      document.getElementById('fltAttnBtn').textContent = 'Cần lưu ý (' + attnCount + ')';
-      document.getElementById('fltAllBtn').textContent = 'Gồm câu trực tiếp (' + ctx.resolved.questions.length + ')';
+      document.getElementById('fltSelfBtn').textContent = 'Tự điền (' + selfCount + ')';
+      document.getElementById('fltAttnBtn').textContent = 'Lưu ý (' + attnCount + ')';
+      document.getElementById('fltLiveBtn').textContent = 'Trực tiếp (' + liveUnansweredCount + ')';
       document.getElementById('ansStatsText').textContent =
-        ctx.doneCount + '/' + ctx.selfEligible.length + ' đã trả lời' +
-        (ctx.voiceCount ? ' · ' + ctx.voiceCount + ' giọng nói' : '') +
+        ctx.doneCount + '/' + ctx.selfEligible.length + ' tự điền' +
+        (liveAnsweredCount ? ' · ' + liveAnsweredCount + ' thu trực tiếp' : '') +
         (ctx.flagCount ? ' · ' + ctx.flagCount + ' lưu ý' : '');
 
       S.currentGroups = [];
       var html = '';
+
+      if (S.ansFilter === 'live') {
+        html += '<div class="live-banner">' +
+          '<div><strong>Phỏng vấn trực tiếp (' + liveUnansweredCount + ' câu chưa trả lời)</strong> · Gõ hoặc bấm <strong>Nói</strong> để thu âm trực tiếp rồi bấm Lưu.</div>' +
+        '</div>';
+        if (S.voice.blocked) {
+          html += '<div class="voice-warn">Khung Google Sheets đang chặn quyền Micro của trình duyệt. Anh/chị vẫn có thể bấm vào ô nhập rồi nhấn phím Micro hệ thống (<strong>Fn + Fn</strong> trên Mac hoặc <strong>Win + H</strong> trên Windows) để đọc thành chữ trực tiếp.</div>';
+        }
+      }
+
       ctx.outputOrder.forEach(function (outName) {
         var qs = ctx.byOutput[outName].filter(function (q) {
           var r = ctx.stageResponses[q.code];
-          if (S.ansFilter === 'self') return q.mode !== 'live';
-          if (S.ansFilter === 'attention') {
-            return q.mode !== 'live' && (!r || !r.answer || !r.answer.trim() || (r.flags && r.flags.length));
-          }
+          var hasAns = Boolean(r && r.answer && r.answer.trim());
+          if (S.ansFilter === 'self') return q.mode !== 'live' || hasAns;
+          if (S.ansFilter === 'attention') return Boolean(r && r.flags && r.flags.length);
+          if (S.ansFilter === 'live') return !hasAns;
           return true;
         });
         if (!qs.length) return;
@@ -1373,68 +1651,146 @@
         var itemsForCopy = [];
         var rowsHtml = qs.map(function (q, qIdx) {
           var r = ctx.stageResponses[q.code];
-          var qText = interpolateVars(q.question_self || q.question_live, ctx.client);
           var hasAns = Boolean(r && r.answer && r.answer.trim());
+          var qText = interpolateVars(
+            (S.ansFilter === 'live' || q.mode === 'live') ? (q.question_live || q.question_self) : (q.question_self || q.question_live),
+            ctx.client
+          );
           itemsForCopy.push({ code: q.code, question: qText, answer: hasAns ? r.answer.trim() : '', extra: (r && r.answer_extra) ? r.answer_extra.trim() : '', mode: q.mode });
 
+          // ===== CHẾ ĐỘ PHỎNG VẤN TRỰC TIẾP (CHỈ CÂU CHƯA TRẢ LỜI + KHUNG TRỐNG + NÓI) =====
+          if (S.ansFilter === 'live') {
+            var dk = draftKeyFor(q.code);
+            var draftVal = S.liveDrafts[dk] || '';
+            var isRec = S.voice.activeCode === q.code;
+            var badge = q.mode === 'live'
+              ? '<span class="q-tag live">Hỏi trực tiếp</span>'
+              : '<span class="q-tag missing">Khách chưa trả lời</span>';
+
+            var probesHtml = '';
+            if (q.hidden_goal || (q.probes && q.probes.length)) {
+              var pItems = (q.probes || []).map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('');
+              probesHtml = '<details class="live-probes"><summary>Gợi ý khai thác &amp; câu đào sâu</summary>' +
+                (q.hidden_goal ? '<div style="margin-top:4px;"><strong>Mục tiêu:</strong> ' + esc(q.hidden_goal) + '</div>' : '') +
+                (pItems ? '<ul>' + pItems + '</ul>' : '') +
+              '</details>';
+            }
+
+            return '<div class="q-row">' +
+              '<div class="q-head">' +
+                '<div class="q-title-line"><span class="q-code">' + esc(q.code) + '</span><span class="q-text">' + esc(qText) + '</span></div>' +
+                '<div class="q-head-right">' + badge + '</div>' +
+              '</div>' +
+              probesHtml +
+              '<textarea class="live-ta" data-live-ta="' + esc(q.code) + '" placeholder="Ghi nhanh hoặc bấm Nói để thu âm câu trả lời trực tiếp...">' + esc(draftVal) + '</textarea>' +
+              '<div class="voice-interim' + (isRec ? '' : ' hidden') + '" data-interim="' + esc(q.code) + '">' + (isRec ? 'Đang thu âm...' : '') + '</div>' +
+              '<div class="live-foot">' +
+                '<div class="live-foot-left">' +
+                  '<button class="btn btn-sec btn-sm voice-btn' + (isRec ? ' recording' : '') + '" data-voice="' + esc(q.code) + '" data-voice-ctx="live" type="button">' +
+                    (isRec ? '<span class="rec-dot"></span><span>Dừng nói</span>' : (micSvg() + '<span>Nói</span>')) +
+                  '</button>' +
+                  '<span class="q-tag" data-wc="' + esc(q.code) + '">' + countWordsLocal(draftVal) + ' từ</span>' +
+                '</div>' +
+                '<div class="live-foot-right">' +
+                  '<button class="btn btn-primary btn-sm" data-save-live="' + esc(q.code) + '" type="button">Lưu câu này</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+          }
+
+          // ===== CHẾ ĐỘ TỰ ĐIỀN & LƯU Ý (XEM + SỬA TRỰC TIẾP TẠI CHỖ) =====
+          var isEditing = S.editingCode === q.code;
           var metaTag = '';
-          if (q.mode === 'live') {
-            metaTag = '<span class="q-tag live">Hỏi trực tiếp</span>';
+          if (q.mode === 'live' && hasAns) {
+            metaTag = '<span class="q-tag live-done">Đã thu trực tiếp · ' + (r.word_count || 0) + ' từ</span>';
           } else if (hasAns) {
             var modeTxt = (r.input_mode === 'noi' || r.input_mode === 'hon_hop') ? 'Nói' : 'Gõ';
             metaTag = '<span class="q-tag">' + modeTxt + ' · ' + (r.word_count || 0) + ' từ</span>';
           }
 
-          var copyOneBtn = (q.mode !== 'live' && hasAns)
+          var editBtn = isEditing
+            ? ''
+            : '<button class="mini-copy" data-edit-q="' + esc(q.code) + '" type="button" title="Chỉnh sửa câu trả lời này">Sửa</button>';
+          var copyOneBtn = (hasAns && !isEditing)
             ? '<button class="mini-copy" data-copy-q="' + gIdx + ':' + qIdx + '" type="button" title="Copy riêng câu này">Copy</button>'
             : '';
 
-          var ansBlock;
-          if (q.mode === 'live') {
-            ansBlock = '<div class="q-ans live">Mục tiêu khai thác: ' + esc(q.hidden_goal) + '</div>';
-          } else if (hasAns) {
-            ansBlock = '<div class="q-ans">' + esc(r.answer.trim()) + '</div>';
+          var bodyBlock = '';
+          if (isEditing) {
+            var curAns = r ? (r.answer || '') : '';
+            var curExtra = r ? (r.answer_extra || '') : '';
+            var isRecEdit = S.voice.activeCode === q.code;
+            bodyBlock = '<div class="q-edit-box">' +
+              '<textarea id="editAnsTa" class="q-edit-ta" data-edit-ta="' + esc(q.code) + '" placeholder="Nhập hoặc bấm Nói để chỉnh sửa câu trả lời...">' + esc(curAns) + '</textarea>' +
+              '<div class="voice-interim' + (isRecEdit ? '' : ' hidden') + '" data-interim="' + esc(q.code) + '">' + (isRecEdit ? 'Đang thu âm...' : '') + '</div>' +
+              '<div id="editExtraWrap" class="' + (curExtra ? '' : 'hidden') + '" style="margin-top:8px;">' +
+                '<span class="q-extra-lbl">Dẫn chứng bổ sung</span>' +
+                '<textarea id="editExtraTa" class="q-edit-ta q-edit-extra-ta" placeholder="Dẫn chứng cụ thể, số liệu hoặc trích dẫn kèm theo...">' + esc(curExtra) + '</textarea>' +
+              '</div>' +
+              '<div class="q-edit-bar">' +
+                '<div class="q-edit-left">' +
+                  '<button class="btn btn-sec btn-sm voice-btn' + (isRecEdit ? ' recording' : '') + '" data-voice="' + esc(q.code) + '" data-voice-ctx="edit" type="button">' +
+                    (isRecEdit ? '<span class="rec-dot"></span><span>Dừng nói</span>' : (micSvg() + '<span>Nói</span>')) +
+                  '</button>' +
+                  (!curExtra ? '<button class="btn btn-ghost btn-sm" id="showEditExtraBtn" type="button">+ Dẫn chứng bổ sung</button>' : '') +
+                  '<span class="q-tag" data-wc="' + esc(q.code) + '">' + countWordsLocal(curAns) + ' từ</span>' +
+                '</div>' +
+                '<div class="q-edit-right">' +
+                  '<button class="btn btn-sec btn-sm" id="cancelEditBtn" type="button">Hủy</button>' +
+                  '<button class="btn btn-primary btn-sm" id="saveEditBtn" data-save-edit="' + esc(q.code) + '" type="button">Lưu</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
           } else {
-            ansBlock = '<div class="q-ans empty">Khách chưa trả lời câu này.</div>';
-          }
-
-          var extraBlock = (r && r.answer_extra && r.answer_extra.trim())
-            ? '<div class="q-extra"><span class="q-extra-lbl">Dẫn chứng bổ sung</span>' + esc(r.answer_extra.trim()) + '</div>'
-            : '';
-
-          var flagsBlock = '';
-          if (r && r.flags && r.flags.length) {
-            var chips = r.flags.map(function (f) {
-              return '<span class="flag-chip">' + esc(FLAG_LABELS[f] || f) + '</span>';
-            });
-            if (r.matched_vague && r.matched_vague.length) {
-              chips.push('<span class="flag-chip">Từ chung chung: "' + esc(r.matched_vague.join(' | ')) + '"</span>');
+            var ansBlock = hasAns
+              ? '<div class="q-ans">' + esc(r.answer.trim()) + '</div>'
+              : '<div class="q-ans empty">Khách chưa trả lời câu này.</div>';
+            var extraBlock = (r && r.answer_extra && r.answer_extra.trim())
+              ? '<div class="q-extra"><span class="q-extra-lbl">Dẫn chứng bổ sung</span>' + esc(r.answer_extra.trim()) + '</div>'
+              : '';
+            var flagsBlock = '';
+            if (r && r.flags && r.flags.length) {
+              var chips = r.flags.map(function (f) {
+                return '<span class="flag-chip">' + esc(FLAG_LABELS[f] || f) + '</span>';
+              });
+              if (r.matched_vague && r.matched_vague.length) {
+                chips.push('<span class="flag-chip">Từ chung chung: "' + esc(r.matched_vague.join(' | ')) + '"</span>');
+              }
+              flagsBlock = '<div class="q-flags">' + chips.join('') + '</div>';
             }
-            flagsBlock = '<div class="q-flags">' + chips.join('') + '</div>';
+            bodyBlock = ansBlock + extraBlock + flagsBlock;
           }
 
           return '<div class="q-row">' +
             '<div class="q-head">' +
               '<div class="q-title-line"><span class="q-code">' + esc(q.code) + '</span><span class="q-text">' + esc(qText) + '</span></div>' +
-              '<div class="q-head-right">' + metaTag + copyOneBtn + '</div>' +
+              '<div class="q-head-right">' + metaTag + editBtn + copyOneBtn + '</div>' +
             '</div>' +
-            ansBlock + extraBlock + flagsBlock +
+            bodyBlock +
           '</div>';
         }).join('');
 
         S.currentGroups.push({ output: outName, items: itemsForCopy });
+        var groupCopyBtn = S.ansFilter !== 'live'
+          ? '<button class="mini-copy" data-copy-g="' + gIdx + '" type="button" title="Copy nhóm đầu ra này">Copy nhóm</button>'
+          : '';
         html += '<div class="group-card">' +
           '<div class="group-head">' +
             '<span class="group-title">' + esc(outName) + '</span>' +
-            '<div class="group-right"><span>' + qs.length + ' câu</span>' +
-              '<button class="mini-copy" data-copy-g="' + gIdx + '" type="button" title="Copy nhóm đầu ra này">Copy nhóm</button>' +
-            '</div>' +
+            '<div class="group-right"><span>' + qs.length + ' câu</span>' + groupCopyBtn + '</div>' +
           '</div>' + rowsHtml + '</div>';
       });
 
-      var box = document.getElementById('answersContainer');
-      box.innerHTML = html || '<div class="panel" style="text-align:center;color:var(--muted);">Không có câu hỏi nào thuộc bộ lọc này.</div>';
+      var emptyMsg = S.ansFilter === 'live'
+        ? '<div class="panel" style="text-align:center;color:var(--green);background:var(--green-bg);border-color:var(--green-border);">Tất cả câu hỏi của Giai đoạn ' + ctx.stageNum + ' đã có câu trả lời! Anh/chị có thể xem hoặc sửa lại tại mục <strong>Tự điền</strong>.</div>'
+        : (S.ansFilter === 'attention'
+          ? '<div class="panel" style="text-align:center;color:var(--muted);">Không có câu trả lời nào cần lưu ý ở Giai đoạn ' + ctx.stageNum + '.</div>'
+          : '<div class="panel" style="text-align:center;color:var(--muted);">Không có câu hỏi nào thuộc bộ lọc này.</div>');
 
+      var box = document.getElementById('answersContainer');
+      box.innerHTML = html || emptyMsg;
+
+      // Bind Copy 1 câu
       Array.prototype.forEach.call(box.querySelectorAll('[data-copy-q]'), function (btn) {
         btn.addEventListener('click', function () {
           var parts = btn.getAttribute('data-copy-q').split(':');
@@ -1445,17 +1801,107 @@
         });
       });
 
+      // Bind Copy nhóm
       Array.prototype.forEach.call(box.querySelectorAll('[data-copy-g]'), function (btn) {
         btn.addEventListener('click', function () {
           var g = S.currentGroups[parseInt(btn.getAttribute('data-copy-g'), 10)];
           var lines = ['ĐẦU RA: ' + g.output.toUpperCase(), ''];
-          g.items.filter(function (it) { return it.mode !== 'live'; }).forEach(function (it) {
-            lines.push('[' + it.code + '] ' + it.question);
+          g.items.filter(function (it) { return it.mode !== 'live' || it.answer; }).forEach(function (it) {
+            lines.push('[' + it.code + ']' + (it.mode === 'live' ? ' (Trực tiếp)' : '') + ' ' + it.question);
             lines.push('Trả lời: ' + (it.answer || '(Chưa trả lời)'));
             if (it.extra) lines.push('Dẫn chứng bổ sung: ' + it.extra);
             lines.push('');
           });
           copyInstant(lines.join('\n').trim(), 'Đã copy nhóm "' + g.output + '"', btn);
+        });
+      });
+
+      // Bind mở Sửa inline trong Tự điền / Lưu ý
+      Array.prototype.forEach.call(box.querySelectorAll('[data-edit-q]'), function (btn) {
+        btn.addEventListener('click', function () {
+          stopVoiceRecording(true);
+          S.editingCode = btn.getAttribute('data-edit-q');
+          var c = getClientById(S.selectedClientId);
+          if (c) renderAnswersPane(computeClientStageContext(c, S.selectedStage, S.selectedRound));
+          var ta = document.getElementById('editAnsTa');
+          if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+        });
+      });
+
+      // Bind nút trong trình Sửa inline
+      var cancelEditBtn = document.getElementById('cancelEditBtn');
+      if (cancelEditBtn) {
+        cancelEditBtn.addEventListener('click', function () {
+          stopVoiceRecording(true);
+          S.editingCode = '';
+          var c = getClientById(S.selectedClientId);
+          if (c) renderAnswersPane(computeClientStageContext(c, S.selectedStage, S.selectedRound));
+        });
+      }
+      var showExtraBtn = document.getElementById('showEditExtraBtn');
+      if (showExtraBtn) {
+        showExtraBtn.addEventListener('click', function () {
+          document.getElementById('editExtraWrap').classList.remove('hidden');
+          showExtraBtn.classList.add('hidden');
+          document.getElementById('editExtraTa').focus();
+        });
+      }
+      var saveEditBtn = document.getElementById('saveEditBtn');
+      if (saveEditBtn) {
+        var editTa = document.getElementById('editAnsTa');
+        var editExtraTa = document.getElementById('editExtraTa');
+        var editCode = saveEditBtn.getAttribute('data-save-edit');
+        if (editTa) {
+          editTa.addEventListener('input', function () {
+            var wcEl = box.querySelector('[data-wc="' + editCode + '"]');
+            if (wcEl) wcEl.textContent = countWordsLocal(editTa.value) + ' từ';
+          });
+          editTa.addEventListener('keydown', function (e) {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+              e.preventDefault();
+              saveResponseFromUi(editCode, editTa.value, editExtraTa ? editExtraTa.value : '', saveEditBtn, false);
+            }
+          });
+        }
+        saveEditBtn.addEventListener('click', function () {
+          saveResponseFromUi(editCode, editTa ? editTa.value : '', editExtraTa ? editExtraTa.value : '', saveEditBtn, false);
+        });
+      }
+
+      // Bind các ô nhập & nút Lưu trong chế độ Trực tiếp
+      Array.prototype.forEach.call(box.querySelectorAll('[data-live-ta]'), function (ta) {
+        var code = ta.getAttribute('data-live-ta');
+        ta.addEventListener('input', function () {
+          S.liveDrafts[draftKeyFor(code)] = ta.value;
+          var wcEl = box.querySelector('[data-wc="' + code + '"]');
+          if (wcEl) wcEl.textContent = countWordsLocal(ta.value) + ' từ';
+        });
+        ta.addEventListener('keydown', function (e) {
+          if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+            e.preventDefault();
+            var sb = box.querySelector('[data-save-live="' + code + '"]');
+            saveResponseFromUi(code, ta.value, '', sb, true);
+          }
+        });
+      });
+
+      Array.prototype.forEach.call(box.querySelectorAll('[data-save-live]'), function (btn) {
+        btn.addEventListener('click', function () {
+          var code = btn.getAttribute('data-save-live');
+          var ta = box.querySelector('[data-live-ta="' + code + '"]');
+          saveResponseFromUi(code, ta ? ta.value : '', '', btn, true);
+        });
+      });
+
+      // Bind nút Nói (Web Speech API) cho cả Trực tiếp và Sửa inline
+      Array.prototype.forEach.call(box.querySelectorAll('[data-voice]'), function (btn) {
+        btn.addEventListener('click', function () {
+          var code = btn.getAttribute('data-voice');
+          var mode = btn.getAttribute('data-voice-ctx');
+          var ta = mode === 'edit'
+            ? document.getElementById('editAnsTa')
+            : box.querySelector('[data-live-ta="' + code + '"]');
+          toggleVoiceForField(code, ta);
         });
       });
     }
@@ -1852,6 +2298,8 @@
         btn.addEventListener('click', function () {
           var st = parseInt(btn.getAttribute('data-stage'), 10);
           if (st !== S.selectedStage) {
+            stopVoiceRecording(true);
+            S.editingCode = '';
             S.selectedStage = st;
             renderWorkspace();
           }
@@ -1921,10 +2369,15 @@
 
       // Tabs & Answer filters
       Array.prototype.forEach.call(document.querySelectorAll('.ws-tab'), function (tab) {
-        tab.addEventListener('click', function () { setActiveTab(tab.getAttribute('data-tab')); });
+        tab.addEventListener('click', function () {
+          stopVoiceRecording(true);
+          setActiveTab(tab.getAttribute('data-tab'));
+        });
       });
       Array.prototype.forEach.call(document.querySelectorAll('#paneAnswers .chip'), function (btn) {
         btn.addEventListener('click', function () {
+          stopVoiceRecording(true);
+          S.editingCode = '';
           S.ansFilter = btn.getAttribute('data-ansfilter');
           Array.prototype.forEach.call(document.querySelectorAll('#paneAnswers .chip'), function (b) { b.classList.toggle('active', b === btn); });
           var c = getClientById(S.selectedClientId);

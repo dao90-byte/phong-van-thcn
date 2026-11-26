@@ -269,6 +269,42 @@ var safeTest = safeJsonForHtml_({ text: '</script><img src=x>' });
 assert(safeTest.indexOf('</script>') === -1 && JSON.parse(safeTest).text === '</script><img src=x>',
   'safeJsonForHtml_ thoát thẻ HTML an toàn và giữ nguyên dữ liệu khi JSON.parse');
 
+// ==================== TEST 10: Chỉnh sửa câu trả lời & Thu phỏng vấn trực tiếp (ccSaveResponse) ====================
+var editSelfRes = ccSaveResponse({
+  client_id: 'C001',
+  stage: 1,
+  round: 'R1',
+  code: '1.1.3',
+  answer: 'Tôi có thể dành 4 giờ mỗi tuần để chia sẻ case study thực tế về chỉnh nha không nhổ răng.',
+  answer_extra: 'Đã có sẵn 12 ca lâm sàng chụp ảnh trước sau rõ nét.',
+  input_mode: 'go'
+});
+assert(editSelfRes.ok && editSelfRes.response.code === '1.1.3' &&
+  editSelfRes.response.flags.length === 0 && editSelfRes.response.word_count > 20,
+  'ccSaveResponse cập nhật câu trả lời tự điền, tính lại word_count và xóa cờ cũ');
+
+var liveAnsRes = ccSaveResponse({
+  client_id: 'C001',
+  stage: 1,
+  round: 'R1',
+  code: '1.1.1',
+  answer: 'Tôi muốn xây thương hiệu cá nhân để khách hàng tin tưởng chuyên môn niềng răng trước khi đặt lịch khám.',
+  input_mode: 'noi'
+});
+assert(liveAnsRes.ok && liveAnsRes.response.code === '1.1.1' && liveAnsRes.response.input_mode === 'noi',
+  'ccSaveResponse lưu câu trả lời phỏng vấn trực tiếp (mode=live, input_mode=noi) vào Responses');
+
+var cleanWithLive = buildCleanAnswersText_('C001', 1, 'R1', { anonymize: false });
+assert(cleanWithLive.indexOf('[1.1.1] (Trực tiếp)') !== -1 &&
+  cleanWithLive.indexOf('tin tưởng chuyên môn niềng răng') !== -1 &&
+  cleanWithLive.indexOf('12 ca lâm sàng') !== -1,
+  'buildCleanAnswersText_ tự động ghép câu trả lời đã sửa và câu thu trực tiếp');
+
+var evalWithLive = buildEvalMarkdown_('C001', 1, 'R1', { anonymize: false });
+assert(evalWithLive.indexOf('- Trả lời phỏng vấn trực tiếp:') !== -1 &&
+  evalWithLive.indexOf('tin tưởng chuyên môn niềng răng') !== -1,
+  'buildEvalMarkdown_ đưa câu trả lời phỏng vấn trực tiếp vào xuất AI đánh giá');
+
 print('\n==============================');
 print('GAS v3.1 TESTS: ' + passed + ' passed, ' + failed + ' failed');
 if (failed > 0) throw new Error('GAS v3.1 test suite failed with ' + failed + ' failures');

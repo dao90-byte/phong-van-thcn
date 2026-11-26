@@ -139,18 +139,22 @@ function buildCleanAnswersText_(clientId, stage, round, options) {
   lines.push('');
 
   ctx.outputOrder.forEach(function (outName) {
-    var selfQs = ctx.byOutput[outName].filter(function (q) { return q.mode !== 'live'; });
-    if (selfQs.length === 0) return;
+    var exportQs = ctx.byOutput[outName].filter(function (q) {
+      if (q.mode !== 'live') return true;
+      var lr = ctx.stageResponses[q.code];
+      return Boolean(lr && String(lr.answer || '').trim());
+    });
+    if (exportQs.length === 0) return;
 
     lines.push('════════════════════════════════════════');
     lines.push('ĐẦU RA: ' + outName.toUpperCase());
     lines.push('════════════════════════════════════════');
     lines.push('');
 
-    selfQs.forEach(function (q) {
+    exportQs.forEach(function (q) {
       var resp = ctx.stageResponses[q.code];
-      var qText = interpolateVars_(q.question_self || q.question_live, interpClient);
-      lines.push('[' + q.code + '] ' + qText);
+      var qText = interpolateVars_(q.mode === 'live' ? (q.question_live || q.question_self) : (q.question_self || q.question_live), interpClient);
+      lines.push('[' + q.code + ']' + (q.mode === 'live' ? ' (Trực tiếp)' : '') + ' ' + qText);
 
       if (resp && String(resp.answer || '').trim()) {
         lines.push('Trả lời: ' + String(resp.answer).trim());
@@ -298,6 +302,13 @@ function buildMarkdownExport_(clientId, stage, round, exportType, options) {
           }
         } else {
           lines.push('- Trả lời tự điền: *(khách chưa trả lời)*');
+        }
+      } else if (resp && String(resp.answer || '').trim()) {
+        lines.push('- Trả lời phỏng vấn trực tiếp:');
+        lines.push(toBlockquote_(resp.answer));
+        if (String(resp.answer_extra || '').trim()) {
+          lines.push('- Dẫn chứng bổ sung:');
+          lines.push(toBlockquote_(resp.answer_extra));
         }
       } else if (exportType === 'preread') {
         lines.push('- Ghi chú chuẩn bị: *(câu hỏi trực tiếp – chưa hỏi khách)*');

@@ -520,6 +520,78 @@ function ccSaveLiveNotes(input) {
   };
 }
 
+/**
+ * Cho phép chuyên gia chỉnh sửa trực tiếp câu trả lời của khách hoặc ghi nhận câu trả lời
+ * trong buổi phỏng vấn trực tiếp ngay tại Trung tâm Điều khiển.
+ */
+function ccSaveResponse(input) {
+  var clientId = String((input && input.client_id) || '').trim();
+  var code = String((input && input.code) || '').trim();
+  var roundStr = String((input && input.round) || DEFAULT_ROUND).trim() || DEFAULT_ROUND;
+  if (!clientId) throw new Error('Thiếu mã khách hàng.');
+  if (!code) throw new Error('Thiếu mã câu hỏi.');
+
+  var bundle = getStaticBundle_();
+  var targetQ = null;
+  for (var i = 0; i < bundle.questions.length; i++) {
+    if (bundle.questions[i].code === code) {
+      targetQ = bundle.questions[i];
+      break;
+    }
+  }
+  var stageNum = targetQ ? targetQ.stage : (parseInt(input && input.stage, 10) || 1);
+
+  var answer = String((input && input.answer !== undefined && input.answer !== null) ? input.answer : '').trim();
+  var answerExtra = String((input && input.answer_extra !== undefined && input.answer_extra !== null) ? input.answer_extra : '').trim();
+  var inputMode = String((input && input.input_mode) || 'go').trim().toLowerCase();
+  if (['go', 'noi', 'hon_hop'].indexOf(inputMode) === -1) inputMode = 'go';
+
+  var wordCount = countWords_(answer + (answerExtra ? ' ' + answerExtra : ''));
+  var ts = nowIso_();
+
+  var record = {
+    client_id: clientId,
+    round: roundStr,
+    stage: stageNum,
+    code: code,
+    answer: answer,
+    answer_extra: answerExtra,
+    input_mode: inputMode,
+    word_count: wordCount,
+    flags: '',
+    matched_vague: '',
+    updated_at: ts
+  };
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    upsertRowByHeader_(TABS.RESPONSES, record, function (row) {
+      return String(row.client_id || '').trim() === clientId &&
+        (String(row.round || DEFAULT_ROUND).trim() || DEFAULT_ROUND) === roundStr &&
+        String(row.code || '').trim() === code;
+    });
+  } finally {
+    lock.releaseLock();
+  }
+
+  return {
+    ok: true,
+    response: {
+      round: roundStr,
+      stage: stageNum,
+      code: code,
+      answer: answer,
+      answer_extra: answerExtra,
+      input_mode: inputMode,
+      word_count: wordCount,
+      flags: [],
+      matched_vague: [],
+      updated_at: ts
+    }
+  };
+}
+
 function ccSaveStageReview(input) {
   var clientId = String((input && input.client_id) || '').trim();
   var stageNum = parseInt(input && input.stage, 10) || 1;
