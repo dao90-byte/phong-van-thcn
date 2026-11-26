@@ -89,7 +89,8 @@ var CACHE_KEYS = {
 
 var PROP_KEYS = {
   WEB_APP_URL: 'THCN_CLIENT_APP_URL',
-  BACKUP_FOLDER_ID: 'THCN_BACKUP_FOLDER_ID'
+  BACKUP_FOLDER_ID: 'THCN_BACKUP_FOLDER_ID',
+  ADMIN_PIN_HASH: 'THCN_ADMIN_PIN_HASH'
 };
 
 var STAGE_TITLES = {
@@ -410,6 +411,60 @@ function recordBadTokenAttempt_() {
   var bucket = 'thcn_bad_token_' + Math.floor(Date.now() / 60000);
   var count = parseInt(cache.get(bucket) || '0', 10) + 1;
   cache.put(bucket, String(count), 120);
+}
+
+function hashAdminPin_(pin) {
+  var clean = String(pin === undefined || pin === null ? '' : pin).trim();
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, 'thcn_admin_pin_v1|' + clean);
+  return Utilities.base64EncodeWebSafe(digest).replace(/=+$/, '');
+}
+
+function constantTimeEqual_(a, b) {
+  var sa = String(a || '');
+  var sb = String(b || '');
+  var diff = sa.length ^ sb.length;
+  var len = Math.max(sa.length, sb.length);
+  for (var i = 0; i < len; i++) {
+    var ca = i < sa.length ? sa.charCodeAt(i) : 0;
+    var cb = i < sb.length ? sb.charCodeAt(i) : 0;
+    diff |= (ca ^ cb);
+  }
+  return diff === 0;
+}
+
+function setAdminPin_(pin) {
+  var clean = String(pin === undefined || pin === null ? '' : pin).trim();
+  if (clean.length < 4) {
+    throw new Error('Mã PIN cần tối thiểu 4 ký tự.');
+  }
+  var hashed = hashAdminPin_(clean);
+  PropertiesService.getScriptProperties().setProperty(PROP_KEYS.ADMIN_PIN_HASH, hashed);
+  return true;
+}
+
+function hasAdminPin_() {
+  return Boolean(PropertiesService.getScriptProperties().getProperty(PROP_KEYS.ADMIN_PIN_HASH));
+}
+
+function verifyAdminPin_(pin) {
+  var stored = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.ADMIN_PIN_HASH);
+  if (!stored) return false;
+  var clean = String(pin === undefined || pin === null ? '' : pin).trim();
+  if (!clean) return false;
+  return constantTimeEqual_(hashAdminPin_(clean), stored);
+}
+
+function isAdminRateLimited_() {
+  var cache = CacheService.getScriptCache();
+  var bucket = 'thcn_bad_admin_pin_' + Math.floor(Date.now() / 300000);
+  return parseInt(cache.get(bucket) || '0', 10) >= 10;
+}
+
+function recordBadAdminAttempt_() {
+  var cache = CacheService.getScriptCache();
+  var bucket = 'thcn_bad_admin_pin_' + Math.floor(Date.now() / 300000);
+  var count = parseInt(cache.get(bucket) || '0', 10) + 1;
+  cache.put(bucket, String(count), 360);
 }
 
 function nowIso_() {

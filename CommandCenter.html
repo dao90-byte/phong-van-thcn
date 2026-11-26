@@ -3,6 +3,7 @@
 <head>
   <base target="_top">
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Trung tâm Điều khiển – Phỏng vấn THCN</title>
   <style>
     :root {
@@ -423,11 +424,74 @@
       .sb-filters { grid-template-columns: repeat(2, 1fr); }
       .grid2 { grid-template-columns: 1fr; }
     }
+
+    /* ===== STANDALONE PIN GATE ===== */
+    .pin-gate {
+      position: fixed; inset: 0; z-index: 9999; background: var(--bg);
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .pin-card {
+      width: 100%; max-width: 390px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 14px;
+      padding: 28px 26px 24px; box-shadow: var(--shadow-pop);
+    }
+    .pin-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 700; color: var(--accent);
+      background: var(--accent-soft); padding: 3px 9px; border-radius: 999px;
+      margin-bottom: 12px;
+    }
+    .pin-title { margin: 0 0 6px; font-size: 17px; font-weight: 700; color: var(--ink); }
+    .pin-sub { margin: 0 0 18px; font-size: 12.5px; color: var(--ink2); line-height: 1.5; }
+    .pin-input {
+      width: 100%; padding: 10px 12px; border: 1px solid var(--border-strong);
+      border-radius: 8px; font-size: 15px; letter-spacing: 0.12em;
+      font-family: inherit; color: var(--ink); background: var(--bg);
+      margin-bottom: 12px;
+    }
+    .pin-input:focus { outline: none; border-color: var(--accent); background: #fff; }
+    .pin-remember {
+      display: flex; align-items: center; gap: 7px; font-size: 12.5px;
+      color: var(--ink2); margin-bottom: 16px; cursor: pointer; user-select: none;
+    }
+    .pin-remember input { accent-color: var(--accent); width: 14px; height: 14px; margin: 0; }
+    .pin-err {
+      font-size: 12px; color: var(--red); background: #fef2f2;
+      border: 1px solid #fecaca; border-radius: 7px; padding: 8px 10px;
+      margin-bottom: 12px; line-height: 1.45;
+    }
+    .pin-submit { width: 100%; justify-content: center; padding: 9px 14px; font-size: 13.5px; }
+    .mini-spin {
+      width: 24px; height: 24px; border: 2.5px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.7s linear infinite; margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
   <!-- Dữ liệu khởi tạo được Apps Script nhúng thẳng lúc mở hộp thoại -> 0ms chờ tải -->
   <script id="thcn-bootstrap" type="application/json"><?!= initialSnapshotJson ?></script>
+
+  <!-- Màn hình nhập mã PIN (chỉ hiện khi mở trực tiếp bản Web độc lập lần đầu) -->
+  <div id="pinGate" class="pin-gate hidden">
+    <div class="pin-card">
+      <div class="pin-badge">
+        <svg class="ic ic-sm" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Chuyên gia tư vấn
+      </div>
+      <h1 class="pin-title">Trung tâm Điều khiển THCN</h1>
+      <p class="pin-sub">Nhập mã PIN quản trị để mở Trung tâm Điều khiển toàn màn hình. Trình duyệt sẽ tự nhớ cho các lần mở sau.</p>
+      <div id="pinError" class="pin-err hidden"></div>
+      <form id="pinForm" autocomplete="off">
+        <input id="pinInput" class="pin-input" type="password" inputmode="text" placeholder="Nhập mã PIN quản trị..." autocomplete="current-password">
+        <label class="pin-remember">
+          <input id="pinRemember" type="checkbox" checked>
+          <span>Ghi nhớ đăng nhập trên trình duyệt này</span>
+        </label>
+        <button id="pinSubmitBtn" class="btn btn-primary pin-submit" type="submit">Mở Trung tâm Điều khiển</button>
+      </form>
+    </div>
+  </div>
 
   <div class="shell">
     <!-- ==================== LEFT SIDEBAR ==================== -->
@@ -438,6 +502,9 @@
           <div class="sb-actions">
             <button id="refreshBtn" class="icon-btn" type="button" title="Làm mới dữ liệu từ Sheet">
               <svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+            </button>
+            <button id="logoutBtn" class="icon-btn hidden" type="button" title="Khóa / Đăng xuất mã PIN">
+              <svg class="ic" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             </button>
             <button id="openCreateBtn" class="btn btn-primary btn-sm" type="button">+ Mới</button>
           </div>
@@ -458,6 +525,11 @@
 
     <!-- ==================== RIGHT WORKSPACE ==================== -->
     <main class="main">
+      <div id="initialLoading" class="center-box hidden">
+        <div class="mini-spin"></div>
+        <div style="font-weight:600;font-size:13.5px;color:var(--ink);">Đang tải dữ liệu Trung tâm Điều khiển...</div>
+      </div>
+
       <div id="emptyState" class="center-box hidden">
         <div style="font-weight:700;font-size:15px;color:var(--ink);">Chưa có khách hàng nào</div>
         <p style="max-width:340px;margin:6px 0 16px;">Tạo hồ sơ khách hàng đầu tiên để lấy đường link phỏng vấn và mẫu tin nhắn gửi Zalo.</p>
@@ -808,7 +880,82 @@
       }
     };
 
-    // ==================== SERVER BRIDGE ====================
+    // ==================== SERVER BRIDGE & STANDALONE WEB MODE ====================
+    var LS_ADMIN_PIN = 'thcn_admin_pin_v1';
+    var LS_ADMIN_SNAP = 'thcn_admin_snapshot_v1';
+    var SESSION_PIN = '';
+
+    function isStandaloneWebMode() {
+      var hasGas = (typeof google !== 'undefined' && google.script && google.script.run);
+      var hasApi = Boolean(window.APP_CONFIG && window.APP_CONFIG.API_URL);
+      return !hasGas && hasApi;
+    }
+
+    function getStoredAdminPin() {
+      if (SESSION_PIN) return SESSION_PIN;
+      try { return localStorage.getItem(LS_ADMIN_PIN) || sessionStorage.getItem(LS_ADMIN_PIN) || ''; }
+      catch (e) { return ''; }
+    }
+
+    function saveAdminPin(pin, remember) {
+      SESSION_PIN = pin || '';
+      try {
+        if (remember) {
+          localStorage.setItem(LS_ADMIN_PIN, SESSION_PIN);
+          sessionStorage.removeItem(LS_ADMIN_PIN);
+        } else {
+          sessionStorage.setItem(LS_ADMIN_PIN, SESSION_PIN);
+          localStorage.removeItem(LS_ADMIN_PIN);
+        }
+      } catch (e) {}
+    }
+
+    function clearAdminSession() {
+      SESSION_PIN = '';
+      try {
+        localStorage.removeItem(LS_ADMIN_PIN);
+        sessionStorage.removeItem(LS_ADMIN_PIN);
+        localStorage.removeItem(LS_ADMIN_SNAP);
+      } catch (e) {}
+    }
+
+    function saveCachedSnapshot(snap) {
+      if (!isStandaloneWebMode() || !snap || snap.error) return;
+      try { localStorage.setItem(LS_ADMIN_SNAP, JSON.stringify(snap)); } catch (e) {}
+    }
+
+    function readCachedSnapshot() {
+      if (!isStandaloneWebMode()) return null;
+      try {
+        var raw = localStorage.getItem(LS_ADMIN_SNAP);
+        if (!raw) return null;
+        var parsed = JSON.parse(raw);
+        return (parsed && !parsed.error && Array.isArray(parsed.clients)) ? parsed : null;
+      } catch (e) { return null; }
+    }
+
+    function showPinGate(errMsg) {
+      var gate = document.getElementById('pinGate');
+      var errEl = document.getElementById('pinError');
+      if (errMsg) {
+        errEl.textContent = errMsg;
+        errEl.classList.remove('hidden');
+      } else {
+        errEl.textContent = '';
+        errEl.classList.add('hidden');
+      }
+      gate.classList.remove('hidden');
+      setTimeout(function () {
+        var inp = document.getElementById('pinInput');
+        if (inp) inp.focus();
+      }, 30);
+    }
+
+    function hidePinGate() {
+      document.getElementById('pinGate').classList.add('hidden');
+      document.getElementById('pinError').classList.add('hidden');
+    }
+
     function callServer(fnName, args, onOk, onErr) {
       if (typeof google !== 'undefined' && google.script && google.script.run) {
         var runner = google.script.run
@@ -825,6 +972,48 @@
           try { onOk(window.__CC_MOCK_API__[fnName].apply(null, args || [])); }
           catch (e) { if (onErr) onErr(e); else showToast('Lỗi: ' + e.message); }
         }, 40);
+        return;
+      }
+      if (isStandaloneWebMode()) {
+        var pin = getStoredAdminPin();
+        if (!pin) {
+          showPinGate('Vui lòng nhập mã PIN quản trị.');
+          if (onErr) onErr(new Error('Chưa nhập mã PIN quản trị.'));
+          return;
+        }
+        fetch(window.APP_CONFIG.API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'admin:' + fnName,
+            admin_pin: pin,
+            payload: (args && args.length > 0) ? args[0] : {}
+          })
+        })
+          .then(function (resp) {
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            return resp.json();
+          })
+          .then(function (res) {
+            if (!res || !res.ok) {
+              var msg = (res && res.error) || 'Không thể kết nối máy chủ.';
+              if (res && (res.code === 'INVALID_PIN' || res.code === 'ADMIN_PIN_NOT_SET')) {
+                clearAdminSession();
+                showPinGate(msg);
+              }
+              var err = new Error(msg);
+              err.code = res && res.code;
+              if (onErr) onErr(err);
+              else showToast('Lỗi: ' + msg);
+              return;
+            }
+            onOk(res.data);
+          })
+          .catch(function (e) {
+            var errMsg = (e && e.message) ? e.message : String(e);
+            if (onErr) onErr(new Error(errMsg));
+            else showToast('Lỗi kết nối: ' + errMsg);
+          });
         return;
       }
       if (onErr) onErr(new Error('Không tìm thấy kết nối Google Apps Script.'));
@@ -1261,9 +1450,11 @@
         if (a.latest_update !== b.latest_update) return a.latest_update < b.latest_update ? 1 : -1;
         return a.client_id < b.client_id ? 1 : -1;
       });
+      saveCachedSnapshot(S.snap);
     }
 
     function hydrateSnapshot(snap, keepSelection) {
+      document.getElementById('initialLoading').classList.add('hidden');
       if (!snap || snap.error) {
         document.getElementById('workspaceWrap').classList.add('hidden');
         document.getElementById('emptyState').classList.add('hidden');
@@ -1305,16 +1496,16 @@
       renderWorkspace();
     }
 
-    function refreshFromServer() {
+    function refreshFromServer(silent) {
       var btn = document.getElementById('refreshBtn');
       btn.classList.add('spin');
       callServer('ccLoadSnapshot', [], function (snap) {
         btn.classList.remove('spin');
         hydrateSnapshot(snap, true);
-        showToast('Đã đồng bộ dữ liệu mới nhất từ Sheet');
+        if (!silent) showToast('Đã đồng bộ dữ liệu mới nhất từ Sheet');
       }, function (e) {
         btn.classList.remove('spin');
-        showToast('Lỗi đồng bộ: ' + (e && e.message ? e.message : e));
+        if (!silent) showToast('Lỗi đồng bộ: ' + (e && e.message ? e.message : e));
       });
     }
 
@@ -2019,6 +2210,7 @@
         document.getElementById('noteInput').value = '';
         if (!S.snap.notesByClient[S.selectedClientId]) S.snap.notesByClient[S.selectedClientId] = [];
         (res.notes || []).forEach(function (n) { S.snap.notesByClient[S.selectedClientId].push(n); });
+        saveCachedSnapshot(S.snap);
         renderWorkspace();
         showToast('Đã lưu ghi chú — bản Copy AI đã tự cập nhật');
       }, function (e) {
@@ -2060,6 +2252,7 @@
       callServer('ccSaveStageReview', [payload], function (res) {
         btn.disabled = false; btn.textContent = 'Lưu nháp';
         upsertLocalReview(S.selectedClientId, res.review || payload);
+        saveCachedSnapshot(S.snap);
         renderWorkspace();
         showToast('Đã lưu nghiệm thu GĐ ' + S.selectedStage);
       }, function (e) {
@@ -2278,9 +2471,54 @@
     }
 
     // ==================== EVENT BINDING & BOOT ====================
+    function handlePinSubmit(e) {
+      e.preventDefault();
+      var inp = document.getElementById('pinInput');
+      var pin = String(inp.value || '').trim();
+      var remember = document.getElementById('pinRemember').checked;
+      var errEl = document.getElementById('pinError');
+      var submitBtn = document.getElementById('pinSubmitBtn');
+
+      if (!pin) {
+        errEl.textContent = 'Vui lòng nhập mã PIN quản trị.';
+        errEl.classList.remove('hidden');
+        inp.focus();
+        return;
+      }
+
+      errEl.classList.add('hidden');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Đang xác thực...';
+      saveAdminPin(pin, remember);
+
+      callServer('ccLoadSnapshot', [], function (snap) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Mở Trung tâm Điều khiển';
+        inp.value = '';
+        hidePinGate();
+        hydrateSnapshot(snap, false);
+      }, function (err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Mở Trung tâm Điều khiển';
+        var msg = (err && err.message) ? err.message : 'Không thể xác thực mã PIN.';
+        showPinGate(msg);
+      });
+    }
+
     function bindEvents() {
       document.getElementById('openCreateBtn').addEventListener('click', openCreateModal);
-      document.getElementById('refreshBtn').addEventListener('click', refreshFromServer);
+      document.getElementById('refreshBtn').addEventListener('click', function () { refreshFromServer(false); });
+      document.getElementById('pinForm').addEventListener('submit', handlePinSubmit);
+      document.getElementById('logoutBtn').addEventListener('click', function () {
+        if (!confirm('Khóa Trung tâm Điều khiển và xóa mã PIN đã lưu trên trình duyệt này?')) return;
+        clearAdminSession();
+        S.snap = null;
+        document.getElementById('workspaceWrap').classList.add('hidden');
+        document.getElementById('emptyState').classList.add('hidden');
+        document.getElementById('clientList').innerHTML = '';
+        document.getElementById('totalClientCount').textContent = '0';
+        showPinGate('');
+      });
       document.getElementById('searchInput').addEventListener('input', function (e) {
         S.searchQuery = e.target.value.trim().toLowerCase();
         renderClientList();
@@ -2404,6 +2642,31 @@
       var injected = readInjectedSnapshot();
       if (injected) {
         hydrateSnapshot(injected, false);
+        return;
+      }
+      if (isStandaloneWebMode()) {
+        document.getElementById('logoutBtn').classList.remove('hidden');
+        var pin = getStoredAdminPin();
+        if (!pin) {
+          showPinGate('');
+          return;
+        }
+        var cached = readCachedSnapshot();
+        if (cached) {
+          // Mở tức thì 0ms từ bộ nhớ trình duyệt, đồng thời âm thầm đồng bộ dữ liệu mới nhất ở nền
+          hydrateSnapshot(cached, false);
+          refreshFromServer(true);
+          return;
+        }
+        document.getElementById('initialLoading').classList.remove('hidden');
+        callServer('ccLoadSnapshot', [], function (snap) {
+          hydrateSnapshot(snap, false);
+        }, function (e) {
+          document.getElementById('initialLoading').classList.add('hidden');
+          if (!e || (e.code !== 'INVALID_PIN' && e.code !== 'ADMIN_PIN_NOT_SET')) {
+            hydrateSnapshot({ error: e && e.message ? e.message : String(e) }, false);
+          }
+        });
         return;
       }
       // Fallback cho môi trường kiểm thử cục bộ hoặc khi mở không qua template
