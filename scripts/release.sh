@@ -13,6 +13,22 @@ cd "$REPO_ROOT"
 JSC="/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc"
 PUSH_FLAG="${1:-}"
 
+echo "=== 0. Đồng bộ bản Web độc lập docs/admin.html từ gas/CommandCenter.html ==="
+python3 - <<'PY'
+from pathlib import Path
+src = Path("gas/CommandCenter.html").read_text(encoding="utf-8")
+out = src.replace(
+    '  <base target="_top">',
+    '  <!-- Bản Web độc lập (GitHub Pages) đồng bộ tự động từ gas/CommandCenter.html -->'
+).replace(
+    '  <!-- Dữ liệu khởi tạo được Apps Script nhúng thẳng lúc mở hộp thoại -> 0ms chờ tải -->\n  <script id="thcn-bootstrap" type="application/json"><?!= initialSnapshotJson ?></script>',
+    '  <script src="config.js"></script>'
+)
+assert "<?!=" not in out and "initialSnapshotJson" not in out, "Lỗi đồng bộ docs/admin.html: còn sót thẻ template Apps Script!"
+Path("docs/admin.html").write_text(out, encoding="utf-8")
+print("✅ Đã đồng bộ docs/admin.html từ gas/CommandCenter.html")
+PY
+
 echo "=== 1. Chạy kiểm thử tự động (GAS v3 + Client Logic) ==="
 "$JSC" tests/test_gas.js
 "$JSC" tests/test_client_logic.js

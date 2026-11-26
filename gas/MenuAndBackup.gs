@@ -10,6 +10,8 @@ var BACKUP_KEEP_COUNT = 8;
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
   var adminMenu = ui.createMenu('Quản trị hệ thống')
+    .addItem('Đặt mã PIN Trung tâm Web', 'menuSetAdminPin')
+    .addSeparator()
     .addItem('Kiểm tra / Nâng cấp cấu trúc Sheet', 'menuRunSetup')
     .addItem('Cài đặt URL trang khách (GitHub Pages)', 'menuSetClientAppUrl')
     .addItem('Làm mới bộ nhớ đệm (Clear Cache)', 'menuClearCache')
@@ -69,6 +71,36 @@ function menuSetClientAppUrl() {
     props.setProperty(PROP_KEYS.WEB_APP_URL, url);
     SpreadsheetApp.getActiveSpreadsheet().toast('Đã lưu URL trang khách: ' + url, 'Tư vấn THCN', 4);
   }
+}
+
+function menuSetAdminPin() {
+  var ui = SpreadsheetApp.getUi();
+  var statusText = hasAdminPin_() ? 'Đã cài đặt (nhập mã mới để đổi)' : 'Chưa cài đặt';
+  var res = ui.prompt(
+    'Đặt mã PIN Trung tâm Điều khiển Web',
+    'Nhập mã PIN quản trị (tối thiểu 4 ký tự, khuyến nghị 6–12 số/ký tự).\nTrạng thái hiện tại: ' + statusText,
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (res.getSelectedButton() !== ui.Button.OK) return;
+
+  var pin = String(res.getResponseText() || '').trim();
+  if (pin.length < 4) {
+    ui.alert('Mã PIN quá ngắn', 'Vui lòng nhập mã PIN có tối thiểu 4 ký tự.', ui.ButtonSet.OK);
+    return;
+  }
+
+  setAdminPin_(pin);
+  var baseUrl = getClientAppBaseUrl_() || 'https://dao90-byte.github.io/phong-van-thcn/';
+  if (baseUrl.slice(-1) !== '/') baseUrl += '/';
+  var adminUrl = baseUrl + 'admin.html';
+
+  ui.alert(
+    'Đã lưu mã PIN Trung tâm Web',
+    'Anh/chị có thể mở trực tiếp Trung tâm Điều khiển toàn màn hình tại:\n\n' +
+    adminUrl + '\n\n' +
+    'Ghim đường dẫn này lên thanh dấu trang (Bookmark) của trình duyệt — chỉ cần nhập mã PIN 1 lần đầu, các lần sau mở thẳng tức thì không cần vào Google Sheet.',
+    ui.ButtonSet.OK
+  );
 }
 
 function menuInstallBackup() {

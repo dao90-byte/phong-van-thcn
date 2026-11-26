@@ -1,0 +1,2682 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <!-- Bản Web độc lập (GitHub Pages) đồng bộ tự động từ gas/CommandCenter.html -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trung tâm Điều khiển – Phỏng vấn THCN</title>
+  <style>
+    :root {
+      --bg: #faf9f6;
+      --surface: #ffffff;
+      --subtle: #f5f4f0;
+      --hover: #f0eee9;
+      --ink: #1c1917;
+      --ink2: #57534e;
+      --muted: #78716c;
+      --border: #e7e5e4;
+      --border-strong: #d6d3d1;
+      --accent: #0f5257;
+      --accent-hover: #0b3f43;
+      --accent-soft: #eaf4f4;
+      --amber: #b45309;
+      --amber-bg: #fffbeb;
+      --amber-border: #fde68a;
+      --green: #047857;
+      --green-dot: #10b981;
+      --green-bg: #ecfdf5;
+      --green-border: #a7f3d0;
+      --red: #b91c1c;
+      --shadow-pop: 0 12px 32px rgba(28, 25, 23, 0.14), 0 2px 6px rgba(28, 25, 23, 0.06);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; height: 100%; overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px; line-height: 1.5; color: var(--ink); background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+    .hidden { display: none !important; }
+    svg.ic { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+    svg.ic-sm { width: 13px; height: 13px; }
+
+    /* ===== SHELL ===== */
+    .shell { display: flex; height: 100vh; width: 100vw; }
+
+    /* ===== LEFT SIDEBAR (248px) ===== */
+    .sidebar {
+      width: 248px; flex-shrink: 0; background: var(--surface);
+      border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    }
+    .sb-top { padding: 12px 12px 10px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+    .sb-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .sb-title { font-weight: 700; font-size: 13.5px; color: var(--ink); display: flex; align-items: center; gap: 6px; }
+    .count-badge {
+      font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-soft);
+      padding: 1px 7px; border-radius: 999px; font-variant-numeric: tabular-nums;
+    }
+    .sb-actions { display: flex; align-items: center; gap: 4px; }
+    .icon-btn {
+      width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border); background: var(--surface); color: var(--ink2);
+      border-radius: 7px; cursor: pointer; padding: 0; transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .icon-btn:hover { background: var(--subtle); color: var(--ink); border-color: var(--border-strong); }
+    .icon-btn.spin svg { animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .search-wrap { position: relative; }
+    .search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+    .sb-search {
+      width: 100%; padding: 6px 9px 6px 28px; border: 1px solid var(--border);
+      border-radius: 7px; font-size: 12.5px; background: var(--bg); color: var(--ink); font-family: inherit;
+    }
+    .sb-search:focus { outline: none; border-color: var(--accent); background: #fff; }
+
+    .sb-filters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; background: var(--subtle); padding: 3px; border-radius: 7px; }
+    .f-tab {
+      border: none; background: transparent; color: var(--ink2); font-family: inherit;
+      font-size: 11px; font-weight: 600; padding: 4px 2px; border-radius: 5px; cursor: pointer;
+      white-space: nowrap; transition: background 0.12s, color 0.12s;
+    }
+    .f-tab:hover { color: var(--ink); }
+    .f-tab.active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+
+    .sb-list { flex: 1; overflow-y: auto; padding: 8px; }
+    .client-item {
+      width: 100%; text-align: left; border: 1px solid transparent; background: transparent;
+      border-radius: 8px; padding: 9px 10px; margin-bottom: 3px; cursor: pointer; font-family: inherit;
+      display: block; transition: background 0.1s, border-color 0.1s;
+    }
+    .client-item:hover { background: var(--subtle); }
+    .client-item.active { background: var(--accent-soft); border-color: rgba(15, 82, 87, 0.25); }
+    .ci-r1 { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .ci-name-wrap { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: #a8a29e; }
+    .dot.submitted { background: var(--green-dot); }
+    .dot.in_progress { background: #f59e0b; }
+    .dot.closed { background: #57534e; }
+    .ci-name { font-weight: 600; font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ci-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--muted); flex-shrink: 0; }
+    .ci-r2 { font-size: 11.5px; color: var(--ink2); margin-top: 2px; display: flex; justify-content: space-between; gap: 6px; }
+    .ci-field { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ci-prog { flex-shrink: 0; font-variant-numeric: tabular-nums; color: var(--muted); }
+    .ci-bar-wrap { height: 3px; background: var(--border); border-radius: 999px; margin-top: 6px; overflow: hidden; }
+    .ci-bar { height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.2s; }
+    .ci-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; font-size: 11px; color: var(--muted); }
+    .ci-flag { color: var(--amber); font-weight: 600; }
+
+    /* ===== RIGHT MAIN ===== */
+    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
+    .center-box {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 32px; color: var(--ink2);
+    }
+
+    /* Compact Sticky Header */
+    .ws-top { background: var(--surface); border-bottom: 1px solid var(--border); padding: 11px 18px 0; flex-shrink: 0; }
+    .ws-row1 { display: flex; align-items: center; justify-content: space-between; gap: 10px; row-gap: 6px; flex-wrap: wrap; margin-bottom: 9px; }
+    .ws-identity { display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1 1 260px; flex-wrap: wrap; }
+    .ws-name { font-size: 16px; font-weight: 700; margin: 0; color: var(--ink); white-space: nowrap; }
+    .meta-sep { color: var(--border-strong); }
+    .meta-txt { font-size: 12px; color: var(--ink2); white-space: nowrap; }
+    .meta-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; color: var(--muted); flex-shrink: 0; }
+
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600;
+      padding: 2px 8px; border-radius: 999px; background: var(--subtle); color: var(--ink2); flex-shrink: 0; white-space: nowrap;
+    }
+    .status-pill.submitted { background: var(--green-bg); color: var(--green); }
+    .status-pill.in_progress { background: var(--amber-bg); color: var(--amber); }
+    .status-pill.closed { background: #e7e5e4; color: #57534e; }
+
+    .stage-group { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .seg-control { display: inline-flex; background: var(--subtle); padding: 2px; border-radius: 7px; border: 1px solid var(--border); }
+    .st-btn {
+      border: none; background: transparent; color: var(--ink2); font-family: inherit;
+      font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 5px; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; transition: background 0.12s, color 0.12s;
+    }
+    .st-btn:hover { color: var(--ink); }
+    .st-btn.active { background: var(--ink); color: #fff; }
+    .st-btn.unopened { color: var(--muted); }
+    .st-btn.active.unopened { color: #e7e5e4; }
+    .round-wrap { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--muted); }
+    .round-input {
+      width: 54px; padding: 4px 6px; border: 1px solid var(--border-strong); border-radius: 6px;
+      font-size: 12px; font-family: ui-monospace, monospace; text-align: center; background: #fff;
+    }
+
+    /* Action Bar */
+    .ws-row2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; row-gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+    .action-left, .action-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      border: 1px solid transparent; border-radius: 7px; padding: 6px 12px;
+      font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+      white-space: nowrap; transition: background 0.12s, border-color 0.12s, opacity 0.12s;
+    }
+    .btn:disabled { opacity: 0.5; cursor: wait; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-sec { background: var(--surface); color: var(--ink); border-color: var(--border-strong); }
+    .btn-sec:hover:not(:disabled) { background: var(--subtle); border-color: #a8a29e; }
+    .btn-ghost { background: transparent; color: var(--ink2); padding: 6px 9px; }
+    .btn-ghost:hover:not(:disabled) { background: var(--subtle); color: var(--ink); }
+    .btn-sm { padding: 5px 9px; font-size: 12px; }
+
+    /* Popover Menu (Xuất khác) */
+    .menu-anchor { position: relative; }
+    .pop-menu {
+      position: absolute; top: calc(100% + 5px); left: 0; z-index: 50; width: 268px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      box-shadow: var(--shadow-pop); padding: 5px;
+    }
+    .pop-item {
+      width: 100%; text-align: left; border: none; background: transparent; border-radius: 7px;
+      padding: 8px 10px; cursor: pointer; font-family: inherit; display: flex; align-items: flex-start; gap: 9px;
+      color: var(--ink); transition: background 0.1s;
+    }
+    .pop-item:hover { background: var(--subtle); }
+    .pop-item-t { font-size: 12.5px; font-weight: 600; line-height: 1.3; }
+    .pop-item-s { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .pop-div { height: 1px; background: var(--border); margin: 4px 6px; }
+    .pop-toggle {
+      display: flex; align-items: center; justify-content: space-between; padding: 7px 10px;
+      border-radius: 7px; cursor: pointer; font-size: 12px; color: var(--ink2); user-select: none;
+    }
+    .pop-toggle:hover { background: var(--subtle); }
+    .pop-toggle input { width: 14px; height: 14px; accent-color: var(--accent); margin: 0; }
+
+    /* Single-line Workspace Tabs */
+    .ws-tabs { display: flex; gap: 16px; overflow-x: auto; scrollbar-width: none; }
+    .ws-tabs::-webkit-scrollbar { display: none; }
+    .ws-tab {
+      border: none; background: transparent; padding: 7px 2px 8px; font-family: inherit;
+      font-size: 12.5px; font-weight: 600; color: var(--muted); cursor: pointer; white-space: nowrap;
+      border-bottom: 2px solid transparent; margin-bottom: -1px; display: inline-flex; align-items: center; gap: 6px;
+      transition: color 0.12s;
+    }
+    .ws-tab:hover { color: var(--ink); }
+    .ws-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-pill {
+      font-size: 11px; font-weight: 600; padding: 0 6px; border-radius: 999px;
+      background: var(--subtle); color: var(--ink2); font-variant-numeric: tabular-nums;
+    }
+    .ws-tab.active .tab-pill { background: var(--accent-soft); color: var(--accent); }
+
+    /* ===== BODY ===== */
+    .ws-body { flex: 1; overflow-y: auto; padding: 14px 18px 28px; }
+
+    /* Quick Post-Action Banner */
+    .quick-banner {
+      background: var(--green-bg); border: 1px solid var(--green-border); color: #065f46;
+      border-radius: 9px; padding: 10px 14px; margin-bottom: 12px;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .qb-text strong { display: block; font-size: 13px; }
+    .qb-sub { font-size: 11.5px; color: #047857; margin-top: 1px; word-break: break-all; }
+    .qb-btns { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+    /* Tab 1: Answers */
+    .ans-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .chip-row { display: flex; gap: 5px; flex-wrap: wrap; }
+    .chip {
+      border: 1px solid var(--border); background: var(--surface); color: var(--ink2);
+      font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 999px; cursor: pointer;
+      font-family: inherit; white-space: nowrap; flex-shrink: 0;
+    }
+    .chip:hover { border-color: var(--border-strong); color: var(--ink); }
+    .chip.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .ans-stats { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    .group-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      margin-bottom: 12px; overflow: hidden;
+    }
+    .group-head {
+      background: var(--subtle); padding: 8px 14px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+    }
+    .group-title { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--accent); }
+    .group-right { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted); flex-shrink: 0; white-space: nowrap; }
+    .mini-copy {
+      border: 1px solid transparent; background: transparent; color: var(--muted);
+      font-family: inherit; font-size: 11.5px; font-weight: 600; padding: 2px 7px; border-radius: 5px;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 4px; opacity: 0.75; white-space: nowrap; transition: all 0.12s;
+    }
+    .mini-copy:hover { background: var(--surface); border-color: var(--border-strong); color: var(--ink); opacity: 1; }
+
+    .q-row { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    .q-row:last-child { border-bottom: none; }
+    .q-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; row-gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
+    .q-title-line { display: flex; align-items: baseline; gap: 8px; flex: 1 1 280px; min-width: 0; }
+    .q-code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; font-size: 11.5px;
+      color: var(--accent); background: var(--accent-soft); padding: 1px 6px; border-radius: 4px; flex-shrink: 0;
+    }
+    .q-text { font-weight: 600; color: var(--ink); font-size: 13px; line-height: 1.45; }
+    .q-head-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .q-tag { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .q-tag.live { color: var(--accent); background: var(--accent-soft); padding: 1px 7px; border-radius: 999px; font-weight: 600; }
+    .q-tag.live-done { color: var(--green); background: var(--green-bg); border: 1px solid var(--green-border); padding: 1px 7px; border-radius: 999px; font-weight: 600; }
+    .q-tag.missing { color: var(--amber); background: var(--amber-bg); border: 1px solid var(--amber-border); padding: 1px 7px; border-radius: 999px; font-weight: 600; }
+
+    .q-ans {
+      white-space: pre-wrap; padding: 9px 12px; border-radius: 7px; background: var(--bg);
+      border-left: 3px solid var(--accent); color: var(--ink); font-size: 13.2px; line-height: 1.6;
+    }
+    .q-ans.empty { border-left-color: var(--border-strong); color: var(--muted); font-style: italic; background: transparent; padding: 4px 10px; }
+    .q-ans.live { border-left-color: var(--border-strong); color: var(--ink2); background: var(--subtle); font-size: 12.5px; }
+    .q-extra {
+      margin-top: 7px; background: var(--amber-bg); border: 1px solid var(--amber-border);
+      border-radius: 7px; padding: 8px 11px; font-size: 12.5px; color: #78350f; white-space: pre-wrap; line-height: 1.55;
+    }
+    .q-extra-lbl { font-weight: 700; font-size: 11.5px; color: var(--amber); margin-bottom: 2px; display: block; }
+    .q-flags { margin-top: 6px; display: flex; gap: 5px; flex-wrap: wrap; }
+    .flag-chip {
+      font-size: 11px; font-weight: 600; color: var(--amber); background: var(--amber-bg);
+      border: 1px solid var(--amber-border); padding: 1px 7px; border-radius: 999px;
+    }
+
+    /* Inline Answer Editor & Live Interview Mode */
+    .q-edit-box { margin-top: 6px; }
+    .q-edit-ta, .live-ta {
+      width: 100%; min-height: 88px; padding: 9px 11px; border: 1px solid var(--border-strong);
+      border-radius: 8px; font-family: inherit; font-size: 13.2px; line-height: 1.55;
+      color: var(--ink); background: #fff; resize: vertical;
+    }
+    .q-edit-ta:focus, .live-ta:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(15, 82, 87, 0.1); }
+    .q-edit-extra-ta { min-height: 62px; margin-top: 4px; background: var(--amber-bg); border-color: var(--amber-border); }
+    .q-edit-bar, .live-foot {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 8px;
+    }
+    .q-edit-left, .q-edit-right, .live-foot-left, .live-foot-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+    .live-banner {
+      background: var(--accent-soft); border: 1px solid rgba(15, 82, 87, 0.2); border-radius: 9px;
+      padding: 9px 13px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+      font-size: 12.3px; color: var(--accent);
+    }
+    .live-banner strong { font-weight: 700; }
+    .voice-warn {
+      background: var(--amber-bg); border: 1px solid var(--amber-border); color: #92400e;
+      border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; font-size: 12px; line-height: 1.45;
+    }
+    .live-probes {
+      margin: 4px 0 8px; font-size: 12px; color: var(--ink2);
+      background: var(--subtle); border-radius: 7px; padding: 6px 10px;
+    }
+    .live-probes summary { cursor: pointer; font-weight: 600; color: var(--accent); user-select: none; }
+    .live-probes ul { margin: 5px 0 2px; padding-left: 18px; }
+    .live-probes li { margin-bottom: 2px; }
+
+    .voice-btn { color: var(--accent); border-color: rgba(15, 82, 87, 0.35); background: var(--surface); }
+    .voice-btn:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
+    .voice-btn.recording {
+      background: #fef2f2; color: var(--red); border-color: #fca5a5;
+      box-shadow: 0 0 0 2px rgba(185, 28, 28, 0.12);
+    }
+    .rec-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--red); display: inline-block;
+      animation: recPulse 1.1s ease-in-out infinite;
+    }
+    @keyframes recPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.8); } }
+    .voice-interim {
+      margin-top: 5px; padding: 5px 9px; border-radius: 6px; background: #fef2f2;
+      border: 1px dashed #fca5a5; color: #991b1b; font-size: 12px; line-height: 1.4;
+    }
+
+    /* Panels & Forms (Tabs 2, 3, 4) */
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 15px 16px; margin-bottom: 12px; }
+    .panel-title { font-weight: 700; font-size: 13px; color: var(--ink); margin: 0 0 10px; }
+    label.fld { display: block; font-weight: 600; margin: 11px 0 4px; font-size: 12px; color: var(--ink2); }
+    label.fld:first-child { margin-top: 0; }
+    input.inp, select.inp, textarea.inp {
+      width: 100%; padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: 7px;
+      font-family: inherit; font-size: 13px; background: #fff; color: var(--ink);
+    }
+    input.inp:focus, select.inp:focus, textarea.inp:focus { outline: none; border-color: var(--accent); }
+    textarea.inp { min-height: 96px; resize: vertical; line-height: 1.55; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .form-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+
+    /* Notes */
+    .note-foot-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 240px; }
+    .note-select { max-width: 320px; padding: 5px 8px; font-size: 12px; }
+    .note-row { padding: 9px 0; border-bottom: 1px dashed var(--border); font-size: 12.8px; white-space: pre-wrap; line-height: 1.55; }
+    .note-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .note-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 3px; }
+    .note-time { font-size: 11px; color: var(--muted); }
+
+    /* Checklist */
+    .chk-list { display: flex; flex-direction: column; gap: 8px; }
+    .chk-row { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; font-size: 13px; color: var(--ink); }
+    .chk-row input { margin-top: 3px; width: 15px; height: 15px; accent-color: var(--accent); flex-shrink: 0; }
+    .submit-strip {
+      display: flex; align-items: center; gap: 8px; padding: 9px 13px; border-radius: 8px;
+      font-size: 12.5px; font-weight: 600; margin-bottom: 12px; border: 1px solid var(--border); background: var(--surface);
+    }
+    .submit-strip.ok { background: var(--green-bg); border-color: var(--green-border); color: var(--green); }
+    .submit-strip.wait { background: var(--amber-bg); border-color: var(--amber-border); color: var(--amber); }
+
+    /* Stage Access Matrix (Tab 4) */
+    .stage-matrix { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 6px; }
+    .sm-card {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+    }
+    .sm-label { font-weight: 600; font-size: 12.5px; }
+    .sm-seg { display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px; }
+    .sm-opt {
+      border: none; background: transparent; font-family: inherit; font-size: 11px; font-weight: 600;
+      color: var(--muted); padding: 3px 8px; border-radius: 4px; cursor: pointer;
+    }
+    .sm-opt.active { background: var(--ink); color: #fff; }
+    .sm-opt.active[data-val="open"] { background: var(--accent); color: #fff; }
+    .sm-opt.active[data-val="locked"] { background: #57534e; color: #fff; }
+
+    details.adv-box { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+    details.adv-box summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--ink2); user-select: none; }
+    details.adv-box summary:hover { color: var(--ink); }
+    .adv-inner { padding-top: 10px; }
+
+    /* Modals */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(28, 25, 23, 0.42);
+      display: flex; align-items: center; justify-content: center; z-index: 60; padding: 18px;
+    }
+    .modal {
+      background: var(--surface); border-radius: 12px; width: min(680px, 95vw); max-height: 88vh;
+      display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.22);
+    }
+    .modal-sm { width: min(480px, 95vw); }
+    .modal-head {
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 14px;
+    }
+    .modal-body { padding: 14px 16px; overflow-y: auto; flex: 1; }
+    .modal-foot { padding: 10px 16px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+    .preview-pre {
+      width: 100%; height: 390px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px; padding: 10px; border: 1px solid var(--border-strong); border-radius: 8px;
+      background: var(--bg); color: var(--ink); resize: none; line-height: 1.5;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 16px; right: 18px; z-index: 90;
+      background: var(--ink); color: #fff; padding: 9px 14px; border-radius: 8px;
+      font-size: 12.5px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      transition: opacity 0.18s, transform 0.18s;
+    }
+    .toast.hide { opacity: 0; pointer-events: none; transform: translateY(8px); }
+
+    @media (max-width: 920px) {
+      .sidebar { width: 210px; }
+      .ws-top { padding: 10px 14px 0; }
+      .ws-body { padding: 12px 14px 24px; }
+      .stage-matrix { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 680px) {
+      .sidebar { width: 176px; }
+      .sb-filters { grid-template-columns: repeat(2, 1fr); }
+      .grid2 { grid-template-columns: 1fr; }
+    }
+
+    /* ===== STANDALONE PIN GATE ===== */
+    .pin-gate {
+      position: fixed; inset: 0; z-index: 9999; background: var(--bg);
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .pin-card {
+      width: 100%; max-width: 390px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 14px;
+      padding: 28px 26px 24px; box-shadow: var(--shadow-pop);
+    }
+    .pin-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 700; color: var(--accent);
+      background: var(--accent-soft); padding: 3px 9px; border-radius: 999px;
+      margin-bottom: 12px;
+    }
+    .pin-title { margin: 0 0 6px; font-size: 17px; font-weight: 700; color: var(--ink); }
+    .pin-sub { margin: 0 0 18px; font-size: 12.5px; color: var(--ink2); line-height: 1.5; }
+    .pin-input {
+      width: 100%; padding: 10px 12px; border: 1px solid var(--border-strong);
+      border-radius: 8px; font-size: 15px; letter-spacing: 0.12em;
+      font-family: inherit; color: var(--ink); background: var(--bg);
+      margin-bottom: 12px;
+    }
+    .pin-input:focus { outline: none; border-color: var(--accent); background: #fff; }
+    .pin-remember {
+      display: flex; align-items: center; gap: 7px; font-size: 12.5px;
+      color: var(--ink2); margin-bottom: 16px; cursor: pointer; user-select: none;
+    }
+    .pin-remember input { accent-color: var(--accent); width: 14px; height: 14px; margin: 0; }
+    .pin-err {
+      font-size: 12px; color: var(--red); background: #fef2f2;
+      border: 1px solid #fecaca; border-radius: 7px; padding: 8px 10px;
+      margin-bottom: 12px; line-height: 1.45;
+    }
+    .pin-submit { width: 100%; justify-content: center; padding: 9px 14px; font-size: 13.5px; }
+    .mini-spin {
+      width: 24px; height: 24px; border: 2.5px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.7s linear infinite; margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <script src="config.js"></script>
+
+  <!-- Màn hình nhập mã PIN (chỉ hiện khi mở trực tiếp bản Web độc lập lần đầu) -->
+  <div id="pinGate" class="pin-gate hidden">
+    <div class="pin-card">
+      <div class="pin-badge">
+        <svg class="ic ic-sm" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Chuyên gia tư vấn
+      </div>
+      <h1 class="pin-title">Trung tâm Điều khiển THCN</h1>
+      <p class="pin-sub">Nhập mã PIN quản trị để mở Trung tâm Điều khiển toàn màn hình. Trình duyệt sẽ tự nhớ cho các lần mở sau.</p>
+      <div id="pinError" class="pin-err hidden"></div>
+      <form id="pinForm" autocomplete="off">
+        <input id="pinInput" class="pin-input" type="password" inputmode="text" placeholder="Nhập mã PIN quản trị..." autocomplete="current-password">
+        <label class="pin-remember">
+          <input id="pinRemember" type="checkbox" checked>
+          <span>Ghi nhớ đăng nhập trên trình duyệt này</span>
+        </label>
+        <button id="pinSubmitBtn" class="btn btn-primary pin-submit" type="submit">Mở Trung tâm Điều khiển</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="shell">
+    <!-- ==================== LEFT SIDEBAR ==================== -->
+    <aside class="sidebar">
+      <div class="sb-top">
+        <div class="sb-head">
+          <div class="sb-title">Khách hàng <span id="totalClientCount" class="count-badge">0</span></div>
+          <div class="sb-actions">
+            <button id="refreshBtn" class="icon-btn" type="button" title="Làm mới dữ liệu từ Sheet">
+              <svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+            </button>
+            <button id="logoutBtn" class="icon-btn hidden" type="button" title="Khóa / Đăng xuất mã PIN">
+              <svg class="ic" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </button>
+            <button id="openCreateBtn" class="btn btn-primary btn-sm" type="button">+ Mới</button>
+          </div>
+        </div>
+        <div class="search-wrap">
+          <svg class="ic ic-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="searchInput" class="sb-search" placeholder="Tìm tên, mã KH, lĩnh vực...">
+        </div>
+        <div class="sb-filters">
+          <button class="f-tab active" data-filter="all" type="button">Tất cả</button>
+          <button class="f-tab" data-filter="submitted" type="button">Đã nộp</button>
+          <button class="f-tab" data-filter="in_progress" type="button">Đang làm</button>
+          <button class="f-tab" data-filter="closed" type="button">Đóng</button>
+        </div>
+      </div>
+      <div id="clientList" class="sb-list"></div>
+    </aside>
+
+    <!-- ==================== RIGHT WORKSPACE ==================== -->
+    <main class="main">
+      <div id="initialLoading" class="center-box hidden">
+        <div class="mini-spin"></div>
+        <div style="font-weight:600;font-size:13.5px;color:var(--ink);">Đang tải dữ liệu Trung tâm Điều khiển...</div>
+      </div>
+
+      <div id="emptyState" class="center-box hidden">
+        <div style="font-weight:700;font-size:15px;color:var(--ink);">Chưa có khách hàng nào</div>
+        <p style="max-width:340px;margin:6px 0 16px;">Tạo hồ sơ khách hàng đầu tiên để lấy đường link phỏng vấn và mẫu tin nhắn gửi Zalo.</p>
+        <button class="btn btn-primary" onclick="openCreateModal()" type="button">+ Tạo khách hàng đầu tiên</button>
+      </div>
+
+      <div id="errorState" class="center-box hidden">
+        <div style="font-weight:700;font-size:15px;color:var(--red);">Không tải được dữ liệu</div>
+        <p id="errorStateMsg" style="max-width:420px;margin:6px 0 14px;"></p>
+        <button class="btn btn-sec" onclick="refreshFromServer()" type="button">Thử tải lại</button>
+      </div>
+
+      <div id="workspaceWrap" class="hidden" style="display:flex;flex-direction:column;height:100%;">
+        <!-- Sticky Compact Header -->
+        <div class="ws-top">
+          <!-- Row 1: Identity + Stage Switcher -->
+          <div class="ws-row1">
+            <div class="ws-identity">
+              <h1 id="wsName" class="ws-name"></h1>
+              <span id="wsId" class="meta-code"></span>
+              <span class="meta-sep">·</span>
+              <span id="wsField" class="meta-txt"></span>
+              <span id="wsBranchSep" class="meta-sep hidden">·</span>
+              <span id="wsBranch" class="meta-txt hidden"></span>
+              <span id="wsStatusPill" class="status-pill"><span class="dot"></span><span id="wsStatusTxt"></span></span>
+            </div>
+
+            <div class="stage-group">
+              <div class="seg-control">
+                <button class="st-btn" data-stage="1" type="button">GĐ 1</button>
+                <button class="st-btn" data-stage="2" type="button">GĐ 2</button>
+                <button class="st-btn" data-stage="3" type="button">GĐ 3</button>
+                <button class="st-btn" data-stage="4" type="button">GĐ 4</button>
+              </div>
+              <span id="roundWrap" class="round-wrap hidden">
+                Đợt
+                <input id="wsRound" class="round-input" value="R1" title="Đợt rà soát GĐ 4 (VD: Q1, Q2)">
+              </span>
+            </div>
+          </div>
+
+          <!-- Row 2: 1-Click Primary Action + Export Menu + Quick Send -->
+          <div class="ws-row2">
+            <div class="action-left">
+              <button id="copyAnswersBtn" class="btn btn-primary" type="button">
+                <svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <span>Copy câu trả lời</span>
+              </button>
+
+              <div class="menu-anchor">
+                <button id="exportMenuBtn" class="btn btn-sec" type="button">
+                  <span>Xuất AI / Khác</span>
+                  <svg class="ic ic-sm" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div id="exportPop" class="pop-menu hidden">
+                  <button class="pop-item" data-export="allStagesAnswers" type="button">
+                    <svg class="ic" style="margin-top:2px;color:var(--accent);" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                    <div><div class="pop-item-t">Copy gộp tất cả giai đoạn</div><div class="pop-item-s">Toàn bộ câu trả lời xuyên suốt hồ sơ</div></div>
+                  </button>
+                  <button class="pop-item" data-export="prereadLlm" type="button">
+                    <svg class="ic" style="margin-top:2px;color:var(--accent);" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/></svg>
+                    <div><div class="pop-item-t">Copy cho AI đọc trước</div><div class="pop-item-s">Kèm câu hỏi trực tiếp &amp; prompt chuẩn bị</div></div>
+                  </button>
+                  <button class="pop-item" data-export="evalLlm" type="button">
+                    <svg class="ic" style="margin-top:2px;color:var(--accent);" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <div><div class="pop-item-t">Copy cho AI đánh giá</div><div class="pop-item-s">Gồm ghi chú buổi gặp, checklist &amp; prompt</div></div>
+                  </button>
+                  <div class="pop-div"></div>
+                  <button class="pop-item" data-export="preview" type="button">
+                    <svg class="ic" style="margin-top:2px;color:var(--ink2);" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <div><div class="pop-item-t">Xem trước nội dung copy</div><div class="pop-item-s">Kiểm tra văn bản trước khi dán</div></div>
+                  </button>
+                  <label class="pop-toggle">
+                    <span>Ẩn tên khách khi copy (dùng mã KH)</span>
+                    <input type="checkbox" id="anonToggle">
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="action-right">
+              <button id="copyLinkBtn" class="btn btn-sec btn-sm" type="button" title="Copy đường link riêng gửi khách">
+                <svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                <span>Copy link</span>
+              </button>
+              <button id="copyZaloBtn" class="btn btn-sec btn-sm" type="button" title="Copy mẫu tin nhắn gửi khách qua Zalo">
+                <svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span>Tin Zalo</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Row 3: Clean Single-Line Tabs -->
+          <div class="ws-tabs">
+            <button class="ws-tab active" data-tab="answers" type="button">Câu trả lời <span id="tabAnsCount" class="tab-pill">0/0</span></button>
+            <button class="ws-tab" data-tab="notes" type="button">Ghi chú <span id="tabNoteCount" class="tab-pill">0</span></button>
+            <button class="ws-tab" data-tab="review" type="button">Chốt giai đoạn</button>
+            <button class="ws-tab" data-tab="settings" type="button">Hồ sơ</button>
+          </div>
+        </div>
+
+        <!-- Scrollable Workspace Content -->
+        <div class="ws-body">
+          <!-- Post-Create / Post-Transition Quick Action Banner -->
+          <div id="quickBanner" class="quick-banner hidden">
+            <div class="qb-text">
+              <strong id="quickBannerTitle">Hoàn tất</strong>
+              <div id="quickBannerSub" class="qb-sub"></div>
+            </div>
+            <div class="qb-btns">
+              <button id="quickCopyLinkBtn" class="btn btn-sec btn-sm" type="button">Copy link</button>
+              <button id="quickCopyZaloBtn" class="btn btn-primary btn-sm" type="button">Copy tin Zalo</button>
+              <button class="icon-btn" onclick="hideQuickBanner()" type="button" aria-label="Đóng">✕</button>
+            </div>
+          </div>
+
+          <!-- TAB 1: CÂU TRẢ LỜI -->
+          <div id="paneAnswers">
+            <div class="ans-bar">
+              <div class="chip-row">
+                <button class="chip active" data-ansfilter="self" type="button" id="fltSelfBtn">Tự điền</button>
+                <button class="chip" data-ansfilter="attention" type="button" id="fltAttnBtn">Lưu ý</button>
+                <button class="chip" data-ansfilter="live" type="button" id="fltLiveBtn">Trực tiếp</button>
+              </div>
+              <span id="ansStatsText" class="ans-stats"></span>
+            </div>
+            <div id="answersContainer"></div>
+          </div>
+
+          <!-- TAB 2: GHI CHÚ BUỔI GẶP -->
+          <div id="paneNotes" class="hidden">
+            <div class="panel">
+              <label class="fld">Ghi chú buổi gặp trực tiếp hoặc Transcript – Giai đoạn <span id="notesStageNum">1</span></label>
+              <textarea id="noteInput" class="inp" style="min-height:130px;" placeholder="Dán nhanh ghi chú hoặc transcript buổi gặp... (tự động ghép vào khi Copy cho AI đánh giá)"></textarea>
+              <div class="form-foot">
+                <div class="note-foot-left">
+                  <span style="font-size:12px;color:var(--muted);white-space:nowrap;">Gắn câu:</span>
+                  <select id="noteCodeSelect" class="inp note-select"></select>
+                </div>
+                <button id="saveNoteBtn" class="btn btn-primary" type="button">Lưu ghi chú</button>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-title">Đã lưu (<span id="notesCountTitle">0</span>)</div>
+              <div id="notesHistoryList"></div>
+            </div>
+          </div>
+
+          <!-- TAB 3: CHỐT GIAI ĐOẠN -->
+          <div id="paneReview" class="hidden">
+            <div id="reviewSubmitStrip" class="submit-strip"></div>
+            <div class="panel">
+              <label class="fld">4 tiêu chí nghiệm thu Giai đoạn <span id="revStageNum">1</span></label>
+              <div class="chk-list" style="margin-top:6px;">
+                <label class="chk-row"><input type="checkbox" id="revC1"><span id="revL1"></span></label>
+                <label class="chk-row"><input type="checkbox" id="revC2"><span id="revL2"></span></label>
+                <label class="chk-row"><input type="checkbox" id="revC3"><span id="revL3"></span></label>
+                <label class="chk-row"><input type="checkbox" id="revC4"><span id="revL4"></span></label>
+              </div>
+
+              <label class="fld" style="margin-top:14px;">Nhận xét của chuyên gia</label>
+              <textarea id="revNote" class="inp" style="min-height:64px;" placeholder="Điểm mạnh nổi bật hoặc nội dung cần làm rõ thêm..."></textarea>
+
+              <label class="fld">Tóm tắt chốt giai đoạn (tự động đính kèm sang Giai đoạn tiếp theo)</label>
+              <textarea id="revSummary" class="inp" style="min-height:115px;" placeholder="Dán 8–10 gạch đầu dòng chốt kết quả của giai đoạn này..."></textarea>
+
+              <div class="form-foot">
+                <button id="saveReviewBtn" class="btn btn-sec" type="button">Lưu nháp</button>
+                <button id="completeNextBtn" class="btn btn-primary" type="button">Chốt GĐ 1 &amp; Mở GĐ 2 →</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 4: HỒ SƠ -->
+          <div id="paneSettings" class="hidden">
+            <div class="panel">
+              <div class="grid2">
+                <div>
+                  <label class="fld">Tên khách hàng</label>
+                  <input id="setName" class="inp">
+                </div>
+                <div>
+                  <label class="fld">Lĩnh vực chuyên môn</label>
+                  <input id="setField" class="inp">
+                </div>
+                <div>
+                  <label class="fld">Hạn hoàn thành</label>
+                  <input id="setDeadline" class="inp" placeholder="VD: 28/11/2026">
+                </div>
+                <div>
+                  <label class="fld">Nhánh kinh doanh</label>
+                  <select id="setBranch" class="inp">
+                    <option value="">Khách tự chọn ở GĐ 2</option>
+                    <option value="A">Nhánh A – Đã có sản phẩm/dịch vụ</option>
+                    <option value="B">Nhánh B – Chưa có mô hình KD</option>
+                  </select>
+                </div>
+              </div>
+
+              <label class="fld" style="margin-top:14px;">Quyền truy cập các giai đoạn trên link khách</label>
+              <div class="stage-matrix" id="stageMatrix"></div>
+
+              <div class="grid2" style="margin-top:12px;">
+                <div>
+                  <label class="fld">Trạng thái đường link</label>
+                  <select id="setStatus" class="inp">
+                    <option value="active">Đang mở (khách truy cập được)</option>
+                    <option value="closed">Đã đóng (ngừng truy cập)</option>
+                  </select>
+                </div>
+              </div>
+
+              <details class="adv-box">
+                <summary>Tùy chỉnh nâng cao (lời chào riêng, thêm/bớt mã câu)</summary>
+                <div class="adv-inner">
+                  <label class="fld">Lời chào hiển thị trên trang mở đầu</label>
+                  <textarea id="setIntro" class="inp" style="min-height:66px;"></textarea>
+                  <div class="grid2" style="margin-top:8px;">
+                    <div>
+                      <label class="fld">Thêm mã câu riêng (ngăn bằng |)</label>
+                      <input id="setInclude" class="inp" placeholder="VD: 3.1.1|3.1.2">
+                    </div>
+                    <div>
+                      <label class="fld">Ẩn bớt mã câu (ngăn bằng |)</label>
+                      <input id="setExclude" class="inp" placeholder="VD: 1.3.3">
+                    </div>
+                  </div>
+                  <label class="chk-row" style="margin-top:10px;">
+                    <input type="checkbox" id="setShowProbes">
+                    <span>Hiển thị thêm câu gợi mở (probes) dưới mỗi câu hỏi</span>
+                  </label>
+                </div>
+              </details>
+
+              <div class="form-foot" style="justify-content:flex-end;">
+                <button id="saveSettingsBtn" class="btn btn-primary" type="button">Lưu thay đổi</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ==================== MODAL TẠO KHÁCH MỚI ==================== -->
+  <div id="createModal" class="overlay hidden">
+    <div class="modal modal-sm">
+      <div class="modal-head">
+        <span>Tạo khách hàng mới</span>
+        <button class="icon-btn" onclick="closeCreateModal()" type="button">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="grid2">
+          <div>
+            <label class="fld">Tên khách hàng *</label>
+            <input id="newName" class="inp" placeholder="VD: Nguyễn Minh Anh">
+          </div>
+          <div>
+            <label class="fld">Lĩnh vực chuyên môn</label>
+            <input id="newField" class="inp" placeholder="VD: Nha khoa thẩm mỹ">
+          </div>
+        </div>
+        <div class="grid2">
+          <div>
+            <label class="fld">Bộ câu hỏi</label>
+            <select id="newTemplate" class="inp"></select>
+          </div>
+          <div>
+            <label class="fld">Hạn hoàn thành (tuỳ chọn)</label>
+            <input id="newDeadline" class="inp" placeholder="VD: 30/11/2026">
+          </div>
+        </div>
+        <details class="adv-box" style="margin-top:10px;">
+          <summary>+ Tùy chỉnh lời chào riêng</summary>
+          <div class="adv-inner">
+            <textarea id="newIntro" class="inp" style="min-height:66px;" placeholder="Để trống sẽ dùng lời chào chuẩn xưng anh/chị..."></textarea>
+          </div>
+        </details>
+        <div id="createErr" style="color:var(--red);font-size:12px;margin-top:6px;"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-sec" onclick="closeCreateModal()" type="button">Hủy</button>
+        <button id="submitCreateBtn" class="btn btn-primary" onclick="submitCreateClient()" type="button">Tạo khách &amp; Lấy link</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL XEM TRƯỚC ==================== -->
+  <div id="previewModal" class="overlay hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <span>Xem trước nội dung Copy</span>
+        <button class="icon-btn" onclick="closePreviewModal()" type="button">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="chip-row" style="margin-bottom:10px;flex-wrap:wrap;">
+          <button class="chip active" data-prev="cleanAnswers" type="button">Câu trả lời GĐ này</button>
+          <button class="chip" data-prev="allStagesAnswers" type="button">Tất cả giai đoạn</button>
+          <button class="chip" data-prev="prereadLlm" type="button">AI đọc trước</button>
+          <button class="chip" data-prev="evalLlm" type="button">AI đánh giá</button>
+          <button class="chip" data-prev="zaloSmart" type="button">Tin Zalo</button>
+        </div>
+        <textarea id="previewText" class="preview-pre" readonly></textarea>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-sec" onclick="closePreviewModal()" type="button">Đóng</button>
+        <button id="previewCopyBtn" class="btn btn-primary" type="button">Copy nội dung này</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hide"></div>
+
+  <script>
+    var FLAG_LABELS = {
+      ngan: 'Hơi ngắn',
+      mo_ho: 'Còn chung chung',
+      bo_qua_nhac: 'Bỏ qua bổ sung',
+      lam_sau: 'Đánh dấu làm sau'
+    };
+
+    var S = {
+      snap: null,
+      summaries: [],
+      filterStatus: 'all',
+      searchQuery: '',
+      selectedClientId: '',
+      selectedStage: 1,
+      selectedRound: 'R1',
+      anonymize: false,
+      activeTab: 'answers',
+      ansFilter: 'self',
+      stageStates: { 1: 'open', 2: 'closed', 3: 'closed', 4: 'closed' },
+      quickZaloText: '',
+      quickLinkText: '',
+      previewKey: 'cleanAnswers',
+      currentGroups: [],
+      editingCode: '',
+      liveDrafts: {},
+      voice: {
+        activeCode: '',
+        targetId: '',
+        rec: null,
+        baseText: '',
+        finalText: '',
+        usedByKey: {},
+        blocked: false
+      }
+    };
+
+    // ==================== SERVER BRIDGE & STANDALONE WEB MODE ====================
+    var LS_ADMIN_PIN = 'thcn_admin_pin_v1';
+    var LS_ADMIN_SNAP = 'thcn_admin_snapshot_v1';
+    var SESSION_PIN = '';
+
+    function isStandaloneWebMode() {
+      var hasGas = (typeof google !== 'undefined' && google.script && google.script.run);
+      var hasApi = Boolean(window.APP_CONFIG && window.APP_CONFIG.API_URL);
+      return !hasGas && hasApi;
+    }
+
+    function getStoredAdminPin() {
+      if (SESSION_PIN) return SESSION_PIN;
+      try { return localStorage.getItem(LS_ADMIN_PIN) || sessionStorage.getItem(LS_ADMIN_PIN) || ''; }
+      catch (e) { return ''; }
+    }
+
+    function saveAdminPin(pin, remember) {
+      SESSION_PIN = pin || '';
+      try {
+        if (remember) {
+          localStorage.setItem(LS_ADMIN_PIN, SESSION_PIN);
+          sessionStorage.removeItem(LS_ADMIN_PIN);
+        } else {
+          sessionStorage.setItem(LS_ADMIN_PIN, SESSION_PIN);
+          localStorage.removeItem(LS_ADMIN_PIN);
+        }
+      } catch (e) {}
+    }
+
+    function clearAdminSession() {
+      SESSION_PIN = '';
+      try {
+        localStorage.removeItem(LS_ADMIN_PIN);
+        sessionStorage.removeItem(LS_ADMIN_PIN);
+        localStorage.removeItem(LS_ADMIN_SNAP);
+      } catch (e) {}
+    }
+
+    function saveCachedSnapshot(snap) {
+      if (!isStandaloneWebMode() || !snap || snap.error) return;
+      try { localStorage.setItem(LS_ADMIN_SNAP, JSON.stringify(snap)); } catch (e) {}
+    }
+
+    function readCachedSnapshot() {
+      if (!isStandaloneWebMode()) return null;
+      try {
+        var raw = localStorage.getItem(LS_ADMIN_SNAP);
+        if (!raw) return null;
+        var parsed = JSON.parse(raw);
+        return (parsed && !parsed.error && Array.isArray(parsed.clients)) ? parsed : null;
+      } catch (e) { return null; }
+    }
+
+    function showPinGate(errMsg) {
+      var gate = document.getElementById('pinGate');
+      var errEl = document.getElementById('pinError');
+      if (errMsg) {
+        errEl.textContent = errMsg;
+        errEl.classList.remove('hidden');
+      } else {
+        errEl.textContent = '';
+        errEl.classList.add('hidden');
+      }
+      gate.classList.remove('hidden');
+      setTimeout(function () {
+        var inp = document.getElementById('pinInput');
+        if (inp) inp.focus();
+      }, 30);
+    }
+
+    function hidePinGate() {
+      document.getElementById('pinGate').classList.add('hidden');
+      document.getElementById('pinError').classList.add('hidden');
+    }
+
+    function callServer(fnName, args, onOk, onErr) {
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        var runner = google.script.run
+          .withSuccessHandler(onOk)
+          .withFailureHandler(function (e) {
+            if (onErr) onErr(e);
+            else showToast('Lỗi: ' + (e && e.message ? e.message : String(e)));
+          });
+        runner[fnName].apply(runner, args || []);
+        return;
+      }
+      if (window.__CC_MOCK_API__ && typeof window.__CC_MOCK_API__[fnName] === 'function') {
+        setTimeout(function () {
+          try { onOk(window.__CC_MOCK_API__[fnName].apply(null, args || [])); }
+          catch (e) { if (onErr) onErr(e); else showToast('Lỗi: ' + e.message); }
+        }, 40);
+        return;
+      }
+      if (isStandaloneWebMode()) {
+        var pin = getStoredAdminPin();
+        if (!pin) {
+          showPinGate('Vui lòng nhập mã PIN quản trị.');
+          if (onErr) onErr(new Error('Chưa nhập mã PIN quản trị.'));
+          return;
+        }
+        fetch(window.APP_CONFIG.API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'admin:' + fnName,
+            admin_pin: pin,
+            payload: (args && args.length > 0) ? args[0] : {}
+          })
+        })
+          .then(function (resp) {
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            return resp.json();
+          })
+          .then(function (res) {
+            if (!res || !res.ok) {
+              var msg = (res && res.error) || 'Không thể kết nối máy chủ.';
+              if (res && (res.code === 'INVALID_PIN' || res.code === 'ADMIN_PIN_NOT_SET')) {
+                clearAdminSession();
+                showPinGate(msg);
+              }
+              var err = new Error(msg);
+              err.code = res && res.code;
+              if (onErr) onErr(err);
+              else showToast('Lỗi: ' + msg);
+              return;
+            }
+            onOk(res.data);
+          })
+          .catch(function (e) {
+            var errMsg = (e && e.message) ? e.message : String(e);
+            if (onErr) onErr(new Error(errMsg));
+            else showToast('Lỗi kết nối: ' + errMsg);
+          });
+        return;
+      }
+      if (onErr) onErr(new Error('Không tìm thấy kết nối Google Apps Script.'));
+    }
+
+    function readInjectedSnapshot() {
+      var el = document.getElementById('thcn-bootstrap');
+      if (!el) return null;
+      var raw = (el.textContent || '').trim();
+      if (!raw || raw.charAt(0) !== '{') return null;
+      try { return JSON.parse(raw); } catch (e) { return null; }
+    }
+
+    // ==================== PURE CLIENT-SIDE DATA & EXPORT ENGINE (0ms) ====================
+    function interpolateVars(text, client) {
+      if (!text) return '';
+      return String(text)
+        .replace(/\{name\}/g, 'anh/chị')
+        .replace(/\{field\}/g, String((client && client.field) || 'lĩnh vực của anh/chị'));
+    }
+
+    function escapeXmlTags(text) {
+      return text === null || text === undefined ? '' : String(text).replace(/<\s*\//g, '<\\/');
+    }
+
+    function toBlockquote(text) {
+      var safe = escapeXmlTags(text).trim();
+      if (!safe) return '> *(chưa có nội dung)*';
+      return safe.split(/\r?\n/).map(function (l) { return '> ' + l; }).join('\n');
+    }
+
+    function resolveQuestions(client, stageFilter, includeLive) {
+      var tpls = (S.snap && S.snap.templates) || {};
+      var tpl = tpls[client.template] || tpls['chuan'] || { codes: [], default_branch: '' };
+      var codeSet = {};
+      (tpl.codes || []).forEach(function (c) { codeSet[c] = true; });
+      (client.include || []).forEach(function (c) { codeSet[c] = true; });
+      (client.exclude || []).forEach(function (c) { delete codeSet[c]; });
+
+      var effectiveBranch = client.branch || tpl.default_branch || '';
+      var openStages = stageFilter ? [stageFilter] : (client.stages_open || [1]);
+      var matched = [];
+
+      ((S.snap && S.snap.questions) || []).forEach(function (q) {
+        if (!codeSet[q.code]) return;
+        if (openStages.indexOf(q.stage) === -1) return;
+        if (!includeLive && q.mode === 'live') return;
+        if (q.branch && (!effectiveBranch || q.branch !== effectiveBranch)) return;
+        matched.push(q);
+      });
+
+      return { questions: matched, effectiveBranch: effectiveBranch };
+    }
+
+    function getClientById(cid) {
+      var list = (S.snap && S.snap.clients) || [];
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].client_id === cid) return list[i];
+      }
+      return null;
+    }
+
+    function computeClientStageContext(client, stageNum, roundStr) {
+      var res = resolveQuestions(client, stageNum, true);
+      var allRespArr = (S.snap.responsesByClient && S.snap.responsesByClient[client.client_id]) || [];
+      var allClientResponses = {};
+      var stageResponses = {};
+      allRespArr.forEach(function (r) {
+        var rRound = r.round || 'R1';
+        if (rRound === 'R1' || rRound === roundStr) allClientResponses[r.code] = r;
+        if (rRound === roundStr && r.stage === stageNum) stageResponses[r.code] = r;
+      });
+
+      var notesArr = (S.snap.notesByClient && S.snap.notesByClient[client.client_id]) || [];
+      var notesByCode = {};
+      var rawNotes = [];
+      var stageNotes = [];
+      notesArr.forEach(function (n) {
+        if ((n.round || 'R1') !== roundStr || n.stage !== stageNum) return;
+        stageNotes.push(n);
+        var code = String(n.code || 'RAW').toUpperCase();
+        if (!code || code === 'RAW') rawNotes.push(n);
+        else {
+          if (!notesByCode[code]) notesByCode[code] = [];
+          notesByCode[code].push(n);
+        }
+      });
+
+      var revArr = (S.snap.reviewsByClient && S.snap.reviewsByClient[client.client_id]) || [];
+      var currentReview = null;
+      var previousReviews = [];
+      revArr.forEach(function (sr) {
+        if (sr.stage === stageNum && (sr.round || 'R1') === roundStr) currentReview = sr;
+        else if (sr.stage < stageNum) previousReviews.push(sr);
+      });
+      previousReviews.sort(function (a, b) { return a.stage - b.stage; });
+
+      var selfQs = res.questions.filter(function (q) { return q.mode !== 'live'; });
+      var done = 0, voice = 0, type = 0, flags = 0;
+      selfQs.forEach(function (q) {
+        var r = stageResponses[q.code];
+        if (r && r.answer && r.answer.trim()) {
+          done++;
+          var m = (r.input_mode || 'go').toLowerCase();
+          if (m === 'noi' || m === 'hon_hop') voice++; else type++;
+        }
+        if (r && r.flags && r.flags.length) flags++;
+      });
+
+      var outputOrder = [];
+      var byOutput = {};
+      res.questions.forEach(function (q) {
+        var out = q.output || 'Khác';
+        if (!byOutput[out]) { byOutput[out] = []; outputOrder.push(out); }
+        byOutput[out].push(q);
+      });
+
+      return {
+        client: client,
+        stageNum: stageNum,
+        roundStr: roundStr,
+        resolved: res,
+        allClientResponses: allClientResponses,
+        stageResponses: stageResponses,
+        notesByCode: notesByCode,
+        rawNotes: rawNotes,
+        stageNotes: stageNotes,
+        currentReview: currentReview,
+        previousReviews: previousReviews,
+        selfEligible: selfQs,
+        doneCount: done,
+        voiceCount: voice,
+        typeCount: type,
+        flagCount: flags,
+        outputOrder: outputOrder,
+        byOutput: byOutput
+      };
+    }
+
+    function formatFlagListReadable(flags, matchedVague) {
+      var labels = (flags || []).map(function (f) { return FLAG_LABELS[f] || f; });
+      if (!labels.length) return '';
+      return labels.join(', ') + (matchedVague && matchedVague.length ? ' ("' + matchedVague.join(' | ') + '")' : '');
+    }
+
+    function buildCleanAnswers(client, stageNum, roundStr, anonymize) {
+      var ctx = computeClientStageContext(client, stageNum, roundStr);
+      var displayName = anonymize ? client.client_id : (client.name + ' (' + client.client_id + ')');
+      var today = new Date().toISOString().slice(0, 10);
+      var interpClient = anonymize ? { name: client.client_id, field: client.field } : client;
+      var submittedLabel = (ctx.currentReview && ctx.currentReview.submitted_at)
+        ? ctx.currentReview.submitted_at.slice(0, 16).replace('T', ' ')
+        : 'Chưa bấm nộp (đang nháp)';
+
+      var lines = [
+        'HỒ SƠ CÂU TRẢ LỜI KHÁCH HÀNG – ' + displayName,
+        'Lĩnh vực: ' + (client.field || 'Chưa rõ') + ' | Nhánh: ' + (ctx.resolved.effectiveBranch || 'Chưa chọn') + ' | Giai đoạn ' + ctx.stageNum + ' (' + ctx.roundStr + ')',
+        'Tiến độ tự điền: ' + ctx.doneCount + '/' + ctx.selfEligible.length + ' câu | Nộp bài: ' + submittedLabel + ' | Xuất ngày: ' + today,
+        ''
+      ];
+
+      ctx.outputOrder.forEach(function (outName) {
+        var exportQs = ctx.byOutput[outName].filter(function (q) {
+          if (q.mode !== 'live') return true;
+          var lr = ctx.stageResponses[q.code];
+          return Boolean(lr && lr.answer && lr.answer.trim());
+        });
+        if (!exportQs.length) return;
+        lines.push('════════════════════════════════════════');
+        lines.push('ĐẦU RA: ' + outName.toUpperCase());
+        lines.push('════════════════════════════════════════');
+        lines.push('');
+
+        exportQs.forEach(function (q) {
+          var resp = ctx.stageResponses[q.code];
+          var qText = interpolateVars(q.mode === 'live' ? (q.question_live || q.question_self) : (q.question_self || q.question_live), interpClient);
+          lines.push('[' + q.code + ']' + (q.mode === 'live' ? ' (Trực tiếp)' : '') + ' ' + qText);
+          if (resp && resp.answer && resp.answer.trim()) {
+            lines.push('Trả lời: ' + resp.answer.trim());
+            if (resp.answer_extra && resp.answer_extra.trim()) {
+              lines.push('Dẫn chứng bổ sung: ' + resp.answer_extra.trim());
+            }
+            var note = formatFlagListReadable(resp.flags, resp.matched_vague);
+            if (note) lines.push('Lưu ý: ' + note);
+          } else {
+            lines.push('Trả lời: (Chưa trả lời)');
+          }
+          lines.push('');
+        });
+      });
+
+      if (Object.keys(ctx.notesByCode).length || ctx.rawNotes.length) {
+        lines.push('════════════════════════════════════════');
+        lines.push('GHI CHÚ BUỔI GẶP TRỰC TIẾP');
+        lines.push('════════════════════════════════════════');
+        Object.keys(ctx.notesByCode).forEach(function (code) {
+          lines.push('[' + code + ']');
+          ctx.notesByCode[code].forEach(function (n) {
+            lines.push('- [' + n.tag + '] ' + n.note.trim());
+          });
+        });
+        ctx.rawNotes.forEach(function (n, idx) {
+          lines.push('Ghi chú thô #' + (idx + 1) + ':');
+          lines.push(n.note.trim());
+        });
+        lines.push('');
+      }
+      return lines.join('\n').trim();
+    }
+
+    function buildAllStagesAnswers(client, roundStr, anonymize) {
+      var stagesMap = {};
+      (client.stages_open || []).forEach(function (s) { stagesMap[s] = true; });
+      ((S.snap.responsesByClient && S.snap.responsesByClient[client.client_id]) || []).forEach(function (r) {
+        if (r.answer && r.answer.trim()) stagesMap[r.stage] = true;
+      });
+      var stages = Object.keys(stagesMap).map(function (k) { return parseInt(k, 10); }).sort(function (a, b) { return a - b; });
+      if (!stages.length) stages = [1];
+      return stages.map(function (s) {
+        return buildCleanAnswers(client, s, roundStr, anonymize);
+      }).join('\n\n============================================================\n\n');
+    }
+
+    function buildLlmExport(client, stageNum, roundStr, exportType, anonymize) {
+      var ctx = computeClientStageContext(client, stageNum, roundStr);
+      var displayName = anonymize ? client.client_id : (client.name + ' (' + client.client_id + ')');
+      var today = new Date().toISOString().slice(0, 10);
+      var submittedLabel = (ctx.currentReview && ctx.currentReview.submitted_at) ? ctx.currentReview.submitted_at : 'Chưa bấm nộp (đang nháp)';
+      var interpClient = anonymize ? { name: client.client_id, field: client.field } : client;
+
+      var lines = [
+        '# HỒ SƠ PHỎNG VẤN – ' + displayName,
+        '- Lĩnh vực: ' + (client.field || 'Chưa rõ') + ' | Nhánh: ' + (ctx.resolved.effectiveBranch || 'Chưa chọn') + ' | Đợt: ' + ctx.roundStr,
+        '- Giai đoạn: ' + ctx.stageNum + ' | Ngày xuất: ' + today,
+        '- Tự điền: ' + ctx.doneCount + '/' + ctx.selfEligible.length + ' câu | Trạng thái nộp: ' + submittedLabel,
+        '- Cách nhập: ' + ctx.voiceCount + ' câu nói thành chữ (có thể còn lỗi nhận dạng giọng nói), ' + ctx.typeCount + ' câu gõ'
+      ];
+      if (anonymize) {
+        lines.push('- Lưu ý quyền riêng tư: Đã thay tên khách bằng mã `' + client.client_id + '`.');
+      }
+      lines.push('');
+
+      if (ctx.stageNum >= 2) {
+        lines.push('<tom_tat_gd_truoc>');
+        var hasSum = false;
+        ctx.previousReviews.forEach(function (sr) {
+          if (sr.approved_summary && sr.approved_summary.trim()) {
+            hasSum = true;
+            lines.push('## Tóm tắt đã chốt – Giai đoạn ' + sr.stage + ' (' + (sr.round || 'R1') + ')');
+            lines.push(escapeXmlTags(sr.approved_summary.trim()));
+            lines.push('');
+          }
+        });
+        if (!hasSum) {
+          lines.push('*(Chưa lưu tóm tắt chốt của giai đoạn trước.)*');
+          lines.push('');
+        }
+        lines.push('## Dữ kiện neo từ Giai đoạn 1 (để đối chiếu tính khả thi)');
+        ['1.1.3', '1.1.5'].forEach(function (ac) {
+          var ans = ctx.allClientResponses[ac];
+          if (ans && ans.answer && ans.answer.trim()) {
+            lines.push('- [' + ac + ']: ' + escapeXmlTags(ans.answer.trim()) + (ans.answer_extra ? ' | Bổ sung: ' + escapeXmlTags(ans.answer_extra.trim()) : ''));
+          } else {
+            lines.push('- [' + ac + ']: *(chưa có dữ liệu tự điền)*');
+          }
+        });
+        lines.push('</tom_tat_gd_truoc>');
+        lines.push('');
+      }
+
+      lines.push('<du_lieu>');
+      ctx.outputOrder.forEach(function (outName) {
+        lines.push('## Đầu ra: ' + outName);
+        lines.push('');
+        ctx.byOutput[outName].forEach(function (q) {
+          var modeLabel = q.mode === 'live' ? 'trực tiếp' : (q.mode === 'hybrid' ? 'nháp + chốt trực tiếp' : 'tự điền');
+          var resp = ctx.stageResponses[q.code];
+          var inputTag = resp ? ' – ' + (resp.input_mode || 'go') : '';
+          lines.push('### [' + q.code + '] (' + modeLabel + inputTag + ')');
+          lines.push('- Câu hỏi: ' + interpolateVars(q.question_live || q.question_self, interpClient));
+          if (q.hidden_goal) lines.push('- Mục tiêu khai thác: ' + q.hidden_goal);
+
+          if (q.mode !== 'live') {
+            if (resp && resp.answer && resp.answer.trim()) {
+              lines.push('- Trả lời tự điền:');
+              lines.push(toBlockquote(resp.answer));
+              if (resp.answer_extra && resp.answer_extra.trim()) {
+                lines.push('- Bổ sung sau nhắc bằng chứng:');
+                lines.push(toBlockquote(resp.answer_extra));
+              }
+              if (resp.flags && resp.flags.length) {
+                var fd = resp.flags.join(', ');
+                if (resp.matched_vague && resp.matched_vague.length) fd += ' ("' + escapeXmlTags(resp.matched_vague.join(' | ')) + '")';
+                lines.push('- Cờ hệ thống: ' + fd);
+              }
+            } else {
+              lines.push('- Trả lời tự điền: *(khách chưa trả lời)*');
+            }
+          } else if (resp && resp.answer && resp.answer.trim()) {
+            lines.push('- Trả lời phỏng vấn trực tiếp:');
+            lines.push(toBlockquote(resp.answer));
+            if (resp.answer_extra && resp.answer_extra.trim()) {
+              lines.push('- Dẫn chứng bổ sung:');
+              lines.push(toBlockquote(resp.answer_extra));
+            }
+          } else if (exportType === 'preread') {
+            lines.push('- Ghi chú chuẩn bị: *(câu hỏi trực tiếp – chưa hỏi khách)*');
+            if (q.probes && q.probes.length) lines.push('- Gợi ý câu đào sâu gốc: ' + q.probes.join(' | '));
+          }
+
+          if (exportType === 'eval') {
+            var qNotes = ctx.notesByCode[q.code.toUpperCase()] || [];
+            if (qNotes.length) {
+              lines.push('- Ghi chú buổi gặp trực tiếp:');
+              qNotes.forEach(function (n) { lines.push('  - [' + n.tag + '] ' + escapeXmlTags(n.note.trim())); });
+            }
+          }
+          lines.push('');
+        });
+      });
+
+      if (exportType === 'eval' && ctx.rawNotes.length) {
+        lines.push('## Ghi chú thô / Transcript buổi gặp trực tiếp (chưa phân mã câu)');
+        ctx.rawNotes.forEach(function (n, idx) {
+          lines.push('### Ghi chú thô #' + (idx + 1) + (n.created_at ? ' (' + n.created_at + ')' : ''));
+          lines.push(toBlockquote(n.note));
+          lines.push('');
+        });
+      }
+      lines.push('</du_lieu>');
+      lines.push('');
+
+      if (exportType === 'eval') {
+        lines.push('<checklist_nha_tu_van>');
+        var labels = (S.snap.checklistLabels && S.snap.checklistLabels[ctx.stageNum]) || [];
+        for (var i = 0; i < 4; i++) {
+          var passed = ctx.currentReview ? Boolean(ctx.currentReview['check_' + (i + 1)]) : false;
+          lines.push('- Mục ' + (i + 1) + ' (' + (labels[i] || '') + '): ' + (ctx.currentReview ? (passed ? 'Đạt' : 'Chưa đạt') : 'Chưa chấm'));
+        }
+        if (ctx.currentReview && ctx.currentReview.review_note) {
+          lines.push('- Nhận xét chuyên gia: ' + escapeXmlTags(ctx.currentReview.review_note.trim()));
+        }
+        lines.push('</checklist_nha_tu_van>');
+        lines.push('');
+      }
+
+      var cfg = S.snap.config || {};
+      var promptKey = (exportType === 'preread' ? 'prompt_preread_s' : 'prompt_eval_s') + ctx.stageNum;
+      var promptText = cfg[promptKey] || cfg['prompt_' + exportType + '_s1'] || '';
+      lines.push('<nhiem_vu>');
+      lines.push(promptText.trim());
+      lines.push('</nhiem_vu>');
+      return lines.join('\n');
+    }
+
+    function buildZaloMessage(client, kind, nextStage) {
+      var cfg = (S.snap && S.snap.config) || {};
+      var deadlineLine = client.deadline ? ('Hạn hoàn thành dự kiến: ' + client.deadline + '.\n') : '';
+      var tpl = kind === 'next_stage'
+        ? (cfg.zalo_next_stage_template || 'Chào anh/chị {name},\n\nPhần chuẩn bị cho Giai đoạn {next_stage} đã được mở sẵn trên đường link cũ:\n{link}\n\nAnh/chị mở lại đường link này để điền tiếp trước buổi làm việc sắp tới nhé!')
+        : (cfg.zalo_invite_template || 'Chào anh/chị {name},\n\nGửi anh/chị đường link chuẩn bị dữ kiện trước buổi làm việc xây dựng thương hiệu cá nhân:\n{link}\n\n{deadline_line}Anh/chị có thể điền dần khi rảnh và nên mở bằng Safari/Chrome để dùng giọng nói mượt nhất nhé!');
+      return String(tpl)
+        .replace(/\{name\}/g, client.name || '')
+        .replace(/\{field\}/g, client.field || '')
+        .replace(/\{link\}/g, client.link || '')
+        .replace(/\{deadline_line\}/g, deadlineLine)
+        .replace(/\{next_stage\}/g, String(nextStage || 2));
+    }
+
+    function getSmartZaloText(client) {
+      var isNext = S.selectedStage > 1 || (client.stages_locked && client.stages_locked.indexOf(1) !== -1);
+      var targetStage = isNext ? Math.max(S.selectedStage, 2) : 2;
+      return buildZaloMessage(client, isNext ? 'next_stage' : 'invite', targetStage);
+    }
+
+    function getExportByKey(key) {
+      var client = getClientById(S.selectedClientId);
+      if (!client) return '';
+      if (key === 'cleanAnswers') return buildCleanAnswers(client, S.selectedStage, S.selectedRound, S.anonymize);
+      if (key === 'allStagesAnswers') return buildAllStagesAnswers(client, S.selectedRound, S.anonymize);
+      if (key === 'prereadLlm') return buildLlmExport(client, S.selectedStage, S.selectedRound, 'preread', S.anonymize);
+      if (key === 'evalLlm') return buildLlmExport(client, S.selectedStage, S.selectedRound, 'eval', S.anonymize);
+      if (key === 'zaloSmart') return getSmartZaloText(client);
+      return '';
+    }
+
+    // ==================== HYDRATION & CLIENT LIST ====================
+    function recomputeClientSummaries() {
+      var clients = (S.snap && S.snap.clients) || [];
+      S.summaries = clients.map(function (c) {
+        var unlocked = (c.stages_open || []).filter(function (s) { return (c.stages_locked || []).indexOf(s) === -1; });
+        var activeStage = unlocked.length
+          ? Math.max.apply(null, unlocked)
+          : ((c.stages_open && c.stages_open.length) ? Math.max.apply(null, c.stages_open) : 1);
+
+        var res = resolveQuestions(c, activeStage, false);
+        var allowed = {};
+        res.questions.forEach(function (q) { allowed[q.code] = true; });
+
+        var cResps = (S.snap.responsesByClient && S.snap.responsesByClient[c.client_id]) || [];
+        var answered = 0, flags = 0, latest = '';
+        cResps.forEach(function (r) {
+          if (r.updated_at && r.updated_at > latest) latest = r.updated_at;
+          if (allowed[r.code]) {
+            if (r.answer && r.answer.trim()) answered++;
+            if (r.flags && r.flags.length) flags++;
+          }
+        });
+
+        var revs = (S.snap.reviewsByClient && S.snap.reviewsByClient[c.client_id]) || [];
+        var submittedActive = revs.some(function (sr) { return sr.stage === activeStage && sr.submitted_at; });
+
+        var badge = 'not_started';
+        if (c.status === 'closed') badge = 'closed';
+        else if (submittedActive) badge = 'submitted';
+        else if (answered > 0) badge = 'in_progress';
+
+        return {
+          client_id: c.client_id,
+          name: c.name,
+          field: c.field,
+          active_stage: activeStage,
+          answered: answered,
+          total: res.questions.length,
+          flags: flags,
+          badge: badge,
+          latest_update: latest
+        };
+      });
+
+      var prio = { submitted: 0, in_progress: 1, not_started: 2, closed: 3 };
+      S.summaries.sort(function (a, b) {
+        if (prio[a.badge] !== prio[b.badge]) return prio[a.badge] - prio[b.badge];
+        if (a.latest_update !== b.latest_update) return a.latest_update < b.latest_update ? 1 : -1;
+        return a.client_id < b.client_id ? 1 : -1;
+      });
+      saveCachedSnapshot(S.snap);
+    }
+
+    function hydrateSnapshot(snap, keepSelection) {
+      document.getElementById('initialLoading').classList.add('hidden');
+      if (!snap || snap.error) {
+        document.getElementById('workspaceWrap').classList.add('hidden');
+        document.getElementById('emptyState').classList.add('hidden');
+        document.getElementById('errorState').classList.remove('hidden');
+        document.getElementById('errorStateMsg').textContent = (snap && snap.error) || 'Không đọc được dữ liệu từ Sheet.';
+        return;
+      }
+
+      document.getElementById('errorState').classList.add('hidden');
+      S.snap = snap;
+      recomputeClientSummaries();
+
+      document.getElementById('totalClientCount').textContent = S.summaries.length;
+      var tpls = snap.templates || {};
+      document.getElementById('newTemplate').innerHTML = Object.keys(tpls).map(function (id) {
+        var t = tpls[id];
+        return '<option value="' + esc(t.template_id) + '">' + esc(t.template_id) + ' – ' + esc(t.description) + '</option>';
+      }).join('');
+
+      if (!S.summaries.length) {
+        S.selectedClientId = '';
+        renderClientList();
+        document.getElementById('workspaceWrap').classList.add('hidden');
+        document.getElementById('emptyState').classList.remove('hidden');
+        return;
+      }
+
+      document.getElementById('emptyState').classList.add('hidden');
+      document.getElementById('workspaceWrap').classList.remove('hidden');
+
+      var stillExists = keepSelection && S.selectedClientId && getClientById(S.selectedClientId);
+      if (!stillExists) {
+        S.selectedClientId = S.summaries[0].client_id;
+        S.selectedStage = S.summaries[0].active_stage;
+        S.selectedRound = 'R1';
+      }
+
+      renderClientList();
+      renderWorkspace();
+    }
+
+    function refreshFromServer(silent) {
+      var btn = document.getElementById('refreshBtn');
+      btn.classList.add('spin');
+      callServer('ccLoadSnapshot', [], function (snap) {
+        btn.classList.remove('spin');
+        hydrateSnapshot(snap, true);
+        if (!silent) showToast('Đã đồng bộ dữ liệu mới nhất từ Sheet');
+      }, function (e) {
+        btn.classList.remove('spin');
+        if (!silent) showToast('Lỗi đồng bộ: ' + (e && e.message ? e.message : e));
+      });
+    }
+
+    function renderClientList() {
+      var listEl = document.getElementById('clientList');
+      var filtered = S.summaries.filter(function (c) {
+        if (S.filterStatus !== 'all' && c.badge !== S.filterStatus) return false;
+        if (S.searchQuery) {
+          var hay = (c.name + ' ' + c.client_id + ' ' + c.field).toLowerCase();
+          if (hay.indexOf(S.searchQuery) === -1) return false;
+        }
+        return true;
+      });
+
+      if (!filtered.length) {
+        listEl.innerHTML = '<div style="padding:20px 10px;text-align:center;color:var(--muted);font-size:12px;">Không tìm thấy khách hàng phù hợp.</div>';
+        return;
+      }
+
+      var statusText = { submitted: 'Đã nộp', in_progress: 'Đang điền', not_started: 'Chưa làm', closed: 'Đã đóng' };
+      listEl.innerHTML = filtered.map(function (c) {
+        var pct = c.total > 0 ? Math.round((c.answered / c.total) * 100) : 0;
+        var activeCls = c.client_id === S.selectedClientId ? ' active' : '';
+        return '<button class="client-item' + activeCls + '" data-cid="' + esc(c.client_id) + '" data-stage="' + c.active_stage + '" type="button">' +
+          '<div class="ci-r1">' +
+            '<span class="ci-name-wrap"><span class="dot ' + c.badge + '"></span><span class="ci-name">' + esc(c.name) + '</span></span>' +
+            '<span class="ci-id">' + esc(c.client_id) + '</span>' +
+          '</div>' +
+          '<div class="ci-r2"><span class="ci-field">' + esc(c.field || 'Chưa rõ lĩnh vực') + '</span><span class="ci-prog">GĐ' + c.active_stage + ' · ' + c.answered + '/' + c.total + '</span></div>' +
+          '<div class="ci-bar-wrap"><div class="ci-bar" style="width:' + pct + '%"></div></div>' +
+          '<div class="ci-meta"><span>' + (statusText[c.badge] || '') + '</span>' +
+            (c.flags > 0 ? '<span class="ci-flag">' + c.flags + ' lưu ý</span>' : '') +
+          '</div>' +
+        '</button>';
+      }).join('');
+
+      Array.prototype.forEach.call(listEl.querySelectorAll('.client-item'), function (btn) {
+        btn.addEventListener('click', function () {
+          var cid = btn.getAttribute('data-cid');
+          var st = parseInt(btn.getAttribute('data-stage'), 10) || 1;
+          if (cid === S.selectedClientId && st === S.selectedStage) return;
+          stopVoiceRecording(true);
+          S.editingCode = '';
+          S.selectedClientId = cid;
+          S.selectedStage = st;
+          S.selectedRound = 'R1';
+          document.getElementById('wsRound').value = 'R1';
+          hideQuickBanner();
+          renderClientList();
+          renderWorkspace();
+        });
+      });
+    }
+
+    // ==================== RENDER WORKSPACE (0ms INSTANT) ====================
+    function renderWorkspace() {
+      var client = getClientById(S.selectedClientId);
+      if (!client) return;
+      var ctx = computeClientStageContext(client, S.selectedStage, S.selectedRound);
+
+      document.getElementById('wsName').textContent = client.name;
+      document.getElementById('wsId').textContent = client.client_id;
+      document.getElementById('wsField').textContent = client.field || 'Chưa rõ lĩnh vực';
+
+      var br = ctx.resolved.effectiveBranch;
+      document.getElementById('wsBranchSep').classList.toggle('hidden', !br);
+      document.getElementById('wsBranch').classList.toggle('hidden', !br);
+      if (br) document.getElementById('wsBranch').textContent = 'Nhánh ' + br;
+
+      var pill = document.getElementById('wsStatusPill');
+      var dot = pill.querySelector('.dot');
+      var txt = document.getElementById('wsStatusTxt');
+      if (client.status === 'closed') {
+        pill.className = 'status-pill closed'; dot.className = 'dot closed'; txt.textContent = 'Đã đóng';
+      } else if (ctx.currentReview && ctx.currentReview.submitted_at) {
+        pill.className = 'status-pill submitted'; dot.className = 'dot submitted'; txt.textContent = 'Đã nộp GĐ ' + ctx.stageNum;
+      } else if (ctx.doneCount > 0) {
+        pill.className = 'status-pill in_progress'; dot.className = 'dot in_progress'; txt.textContent = 'Đang điền ' + ctx.doneCount + '/' + ctx.selfEligible.length;
+      } else {
+        pill.className = 'status-pill'; dot.className = 'dot'; txt.textContent = 'Chưa làm';
+      }
+
+      Array.prototype.forEach.call(document.querySelectorAll('.st-btn'), function (btn) {
+        var st = parseInt(btn.getAttribute('data-stage'), 10);
+        var isLocked = (client.stages_locked || []).indexOf(st) !== -1;
+        var isOpen = (client.stages_open || []).indexOf(st) !== -1;
+        btn.classList.toggle('active', st === ctx.stageNum);
+        btn.classList.toggle('unopened', !isOpen && !isLocked);
+        btn.innerHTML = (isLocked ? '<svg class="ic ic-sm" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '') + 'GĐ ' + st;
+      });
+
+      document.getElementById('roundWrap').classList.toggle('hidden', ctx.stageNum !== 4);
+      document.getElementById('tabAnsCount').textContent = ctx.doneCount + '/' + ctx.selfEligible.length;
+      document.getElementById('tabNoteCount').textContent = ctx.stageNotes.length;
+
+      renderAnswersPane(ctx);
+      renderNotesPane(ctx);
+      renderReviewPane(ctx);
+      renderSettingsPane(client);
+    }
+
+    function countWordsLocal(text) {
+      var s = String(text || '').trim();
+      return s ? s.split(/\s+/).length : 0;
+    }
+
+    function draftKeyFor(code) {
+      return S.selectedClientId + ':' + S.selectedStage + ':' + S.selectedRound + ':' + code;
+    }
+
+    function micSvg() {
+      return '<svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+    }
+
+    function stopVoiceRecording(silent) {
+      var v = S.voice;
+      if (v.rec) {
+        var r = v.rec;
+        v.rec = null;
+        try { r.onend = null; r.onerror = null; r.onresult = null; r.stop(); } catch (e) {}
+      }
+      var prevCode = v.activeCode;
+      v.activeCode = '';
+      v.targetId = '';
+      v.baseText = '';
+      v.finalText = '';
+      if (prevCode) {
+        updateVoiceButtonVisual(prevCode, false, '');
+        if (!silent) showToast('Đã dừng thu âm câu ' + prevCode);
+      }
+    }
+
+    function updateVoiceButtonVisual(code, isRec, interimText) {
+      var btns = document.querySelectorAll('[data-voice="' + code + '"]');
+      Array.prototype.forEach.call(btns, function (b) {
+        b.classList.toggle('recording', isRec);
+        b.innerHTML = isRec
+          ? '<span class="rec-dot"></span><span>Dừng nói</span>'
+          : (micSvg() + '<span>Nói</span>');
+      });
+      var interims = document.querySelectorAll('[data-interim="' + code + '"]');
+      Array.prototype.forEach.call(interims, function (el) {
+        if (isRec) {
+          el.classList.remove('hidden');
+          el.textContent = interimText ? ('Đang thu âm: ' + interimText) : 'Đang thu âm... Hãy nói trực tiếp, bấm Dừng nói khi xong.';
+        } else {
+          el.classList.add('hidden');
+          el.textContent = '';
+        }
+      });
+    }
+
+    function toggleVoiceForField(code, taEl) {
+      if (!taEl) return;
+      if (S.voice.activeCode === code) {
+        stopVoiceRecording(false);
+        return;
+      }
+      stopVoiceRecording(true);
+
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        S.voice.blocked = true;
+        showToast('Trình duyệt này chưa hỗ trợ thu âm trực tiếp — anh/chị có thể dùng Micro hệ thống (Fn+Fn / Win+H)');
+        var c = getClientById(S.selectedClientId);
+        if (c && S.ansFilter === 'live') renderAnswersPane(computeClientStageContext(c, S.selectedStage, S.selectedRound));
+        return;
+      }
+
+      var rec = new SR();
+      rec.lang = 'vi-VN';
+      rec.continuous = true;
+      rec.interimResults = true;
+
+      S.voice.activeCode = code;
+      S.voice.rec = rec;
+      S.voice.baseText = taEl.value ? (taEl.value.trimEnd() + ' ') : '';
+      S.voice.finalText = '';
+      S.voice.usedByKey[draftKeyFor(code)] = true;
+      updateVoiceButtonVisual(code, true, '');
+      taEl.focus();
+
+      rec.onresult = function (evt) {
+        var interim = '';
+        var finalChunk = '';
+        for (var i = evt.resultIndex; i < evt.results.length; i++) {
+          var tr = evt.results[i][0].transcript;
+          if (evt.results[i].isFinal) finalChunk += tr + ' ';
+          else interim += tr;
+        }
+        if (finalChunk) {
+          S.voice.finalText += finalChunk;
+          taEl.value = (S.voice.baseText + S.voice.finalText).replace(/\s+$/, '');
+          S.liveDrafts[draftKeyFor(code)] = taEl.value;
+          var wcEl = document.querySelector('[data-wc="' + code + '"]');
+          if (wcEl) wcEl.textContent = countWordsLocal(taEl.value) + ' từ';
+        }
+        updateVoiceButtonVisual(code, true, interim.trim());
+      };
+
+      rec.onerror = function (evt) {
+        var err = evt && evt.error ? evt.error : 'unknown';
+        stopVoiceRecording(true);
+        if (err === 'not-allowed' || err === 'service-not-allowed' || err === 'audio-capture') {
+          S.voice.blocked = true;
+          showToast('Trình duyệt hoặc khung Google Sheets đang chặn Micro — dùng Fn+Fn (Mac) / Win+H (Win) để nói');
+          var c = getClientById(S.selectedClientId);
+          if (c && S.ansFilter === 'live') renderAnswersPane(computeClientStageContext(c, S.selectedStage, S.selectedRound));
+        } else if (err === 'no-speech') {
+          showToast('Chưa nghe thấy giọng nói — anh/chị bấm Nói để thử lại');
+        } else if (err !== 'aborted') {
+          showToast('Lỗi thu âm (' + err + ') — anh/chị thử bấm lại');
+        }
+      };
+
+      rec.onend = function () {
+        if (S.voice.activeCode === code) {
+          stopVoiceRecording(true);
+        }
+      };
+
+      try {
+        rec.start();
+      } catch (e) {
+        stopVoiceRecording(true);
+        S.voice.blocked = true;
+        showToast('Không mở được Micro trong khung này — dùng phím Micro hệ thống (Fn+Fn / Win+H)');
+      }
+    }
+
+    function upsertLocalResponse(cid, rec) {
+      if (!S.snap.responsesByClient[cid]) S.snap.responsesByClient[cid] = [];
+      var list = S.snap.responsesByClient[cid];
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].code === rec.code && (list[i].round || 'R1') === (rec.round || 'R1')) {
+          list[i] = rec;
+          return;
+        }
+      }
+      list.push(rec);
+    }
+
+    function saveResponseFromUi(code, answerVal, extraVal, btnEl, isLiveFlow) {
+      var ans = String(answerVal || '').trim();
+      var ext = String(extraVal || '').trim();
+      if (isLiveFlow && !ans) {
+        showToast('Anh/chị chưa nhập hoặc nói nội dung cho câu ' + code);
+        return;
+      }
+      if (S.voice.activeCode === code) stopVoiceRecording(true);
+
+      var dk = draftKeyFor(code);
+      var usedVoice = Boolean(S.voice.usedByKey[dk]);
+      var inputMode = usedVoice ? 'noi' : 'go';
+
+      var origText = btnEl ? btnEl.textContent : '';
+      if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Đang lưu...'; }
+
+      callServer('ccSaveResponse', [{
+        client_id: S.selectedClientId,
+        stage: S.selectedStage,
+        round: S.selectedRound,
+        code: code,
+        answer: ans,
+        answer_extra: ext,
+        input_mode: inputMode
+      }], function (res) {
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = origText; }
+        if (res && res.response) {
+          upsertLocalResponse(S.selectedClientId, res.response);
+        }
+        delete S.liveDrafts[dk];
+        delete S.voice.usedByKey[dk];
+        if (!isLiveFlow && S.editingCode === code) S.editingCode = '';
+        recomputeClientSummaries();
+        renderClientList();
+        renderWorkspace();
+        showToast(isLiveFlow
+          ? ('Đã lưu câu ' + code + ' — xem/sửa lại tại mục Tự điền')
+          : ('Đã cập nhật câu ' + code + ' — bản Copy đã tự đồng bộ'));
+      }, function (e) {
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = origText; }
+        showToast('Lỗi lưu câu ' + code + ': ' + (e && e.message ? e.message : e));
+      });
+    }
+
+    function renderAnswersPane(ctx) {
+      var selfCount = 0;
+      var attnCount = 0;
+      var liveUnansweredCount = 0;
+      var liveAnsweredCount = 0;
+
+      ctx.resolved.questions.forEach(function (q) {
+        var r = ctx.stageResponses[q.code];
+        var hasAns = Boolean(r && r.answer && r.answer.trim());
+        if (q.mode !== 'live' || hasAns) selfCount++;
+        if (q.mode === 'live' && hasAns) liveAnsweredCount++;
+        if (r && r.flags && r.flags.length) attnCount++;
+        if (!hasAns) liveUnansweredCount++;
+      });
+
+      document.getElementById('fltSelfBtn').textContent = 'Tự điền (' + selfCount + ')';
+      document.getElementById('fltAttnBtn').textContent = 'Lưu ý (' + attnCount + ')';
+      document.getElementById('fltLiveBtn').textContent = 'Trực tiếp (' + liveUnansweredCount + ')';
+      document.getElementById('ansStatsText').textContent =
+        ctx.doneCount + '/' + ctx.selfEligible.length + ' tự điền' +
+        (liveAnsweredCount ? ' · ' + liveAnsweredCount + ' thu trực tiếp' : '') +
+        (ctx.flagCount ? ' · ' + ctx.flagCount + ' lưu ý' : '');
+
+      S.currentGroups = [];
+      var html = '';
+
+      if (S.ansFilter === 'live') {
+        html += '<div class="live-banner">' +
+          '<div><strong>Phỏng vấn trực tiếp (' + liveUnansweredCount + ' câu chưa trả lời)</strong> · Gõ hoặc bấm <strong>Nói</strong> để thu âm trực tiếp rồi bấm Lưu.</div>' +
+        '</div>';
+        if (S.voice.blocked) {
+          html += '<div class="voice-warn">Khung Google Sheets đang chặn quyền Micro của trình duyệt. Anh/chị vẫn có thể bấm vào ô nhập rồi nhấn phím Micro hệ thống (<strong>Fn + Fn</strong> trên Mac hoặc <strong>Win + H</strong> trên Windows) để đọc thành chữ trực tiếp.</div>';
+        }
+      }
+
+      ctx.outputOrder.forEach(function (outName) {
+        var qs = ctx.byOutput[outName].filter(function (q) {
+          var r = ctx.stageResponses[q.code];
+          var hasAns = Boolean(r && r.answer && r.answer.trim());
+          if (S.ansFilter === 'self') return q.mode !== 'live' || hasAns;
+          if (S.ansFilter === 'attention') return Boolean(r && r.flags && r.flags.length);
+          if (S.ansFilter === 'live') return !hasAns;
+          return true;
+        });
+        if (!qs.length) return;
+
+        var gIdx = S.currentGroups.length;
+        var itemsForCopy = [];
+        var rowsHtml = qs.map(function (q, qIdx) {
+          var r = ctx.stageResponses[q.code];
+          var hasAns = Boolean(r && r.answer && r.answer.trim());
+          var qText = interpolateVars(
+            (S.ansFilter === 'live' || q.mode === 'live') ? (q.question_live || q.question_self) : (q.question_self || q.question_live),
+            ctx.client
+          );
+          itemsForCopy.push({ code: q.code, question: qText, answer: hasAns ? r.answer.trim() : '', extra: (r && r.answer_extra) ? r.answer_extra.trim() : '', mode: q.mode });
+
+          // ===== CHẾ ĐỘ PHỎNG VẤN TRỰC TIẾP (CHỈ CÂU CHƯA TRẢ LỜI + KHUNG TRỐNG + NÓI) =====
+          if (S.ansFilter === 'live') {
+            var dk = draftKeyFor(q.code);
+            var draftVal = S.liveDrafts[dk] || '';
+            var isRec = S.voice.activeCode === q.code;
+            var badge = q.mode === 'live'
+              ? '<span class="q-tag live">Hỏi trực tiếp</span>'
+              : '<span class="q-tag missing">Khách chưa trả lời</span>';
+
+            var probesHtml = '';
+            if (q.hidden_goal || (q.probes && q.probes.length)) {
+              var pItems = (q.probes || []).map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('');
+              probesHtml = '<details class="live-probes"><summary>Gợi ý khai thác &amp; câu đào sâu</summary>' +
+                (q.hidden_goal ? '<div style="margin-top:4px;"><strong>Mục tiêu:</strong> ' + esc(q.hidden_goal) + '</div>' : '') +
+                (pItems ? '<ul>' + pItems + '</ul>' : '') +
+              '</details>';
+            }
+
+            return '<div class="q-row">' +
+              '<div class="q-head">' +
+                '<div class="q-title-line"><span class="q-code">' + esc(q.code) + '</span><span class="q-text">' + esc(qText) + '</span></div>' +
+                '<div class="q-head-right">' + badge + '</div>' +
+              '</div>' +
+              probesHtml +
+              '<textarea class="live-ta" data-live-ta="' + esc(q.code) + '" placeholder="Ghi nhanh hoặc bấm Nói để thu âm câu trả lời trực tiếp...">' + esc(draftVal) + '</textarea>' +
+              '<div class="voice-interim' + (isRec ? '' : ' hidden') + '" data-interim="' + esc(q.code) + '">' + (isRec ? 'Đang thu âm...' : '') + '</div>' +
+              '<div class="live-foot">' +
+                '<div class="live-foot-left">' +
+                  '<button class="btn btn-sec btn-sm voice-btn' + (isRec ? ' recording' : '') + '" data-voice="' + esc(q.code) + '" data-voice-ctx="live" type="button">' +
+                    (isRec ? '<span class="rec-dot"></span><span>Dừng nói</span>' : (micSvg() + '<span>Nói</span>')) +
+                  '</button>' +
+                  '<span class="q-tag" data-wc="' + esc(q.code) + '">' + countWordsLocal(draftVal) + ' từ</span>' +
+                '</div>' +
+                '<div class="live-foot-right">' +
+                  '<button class="btn btn-primary btn-sm" data-save-live="' + esc(q.code) + '" type="button">Lưu câu này</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+          }
+
+          // ===== CHẾ ĐỘ TỰ ĐIỀN & LƯU Ý (XEM + SỬA TRỰC TIẾP TẠI CHỖ) =====
+          var isEditing = S.editingCode === q.code;
+          var metaTag = '';
+          if (q.mode === 'live' && hasAns) {
+            metaTag = '<span class="q-tag live-done">Đã thu trực tiếp · ' + (r.word_count || 0) + ' từ</span>';
+          } else if (hasAns) {
+            var modeTxt = (r.input_mode === 'noi' || r.input_mode === 'hon_hop') ? 'Nói' : 'Gõ';
+            metaTag = '<span class="q-tag">' + modeTxt + ' · ' + (r.word_count || 0) + ' từ</span>';
+          }
+
+          var editBtn = isEditing
+            ? ''
+            : '<button class="mini-copy" data-edit-q="' + esc(q.code) + '" type="button" title="Chỉnh sửa câu trả lời này">Sửa</button>';
+          var copyOneBtn = (hasAns && !isEditing)
+            ? '<button class="mini-copy" data-copy-q="' + gIdx + ':' + qIdx + '" type="button" title="Copy riêng câu này">Copy</button>'
+            : '';
+
+          var bodyBlock = '';
+          if (isEditing) {
+            var curAns = r ? (r.answer || '') : '';
+            var curExtra = r ? (r.answer_extra || '') : '';
+            var isRecEdit = S.voice.activeCode === q.code;
+            bodyBlock = '<div class="q-edit-box">' +
+              '<textarea id="editAnsTa" class="q-edit-ta" data-edit-ta="' + esc(q.code) + '" placeholder="Nhập hoặc bấm Nói để chỉnh sửa câu trả lời...">' + esc(curAns) + '</textarea>' +
+              '<div class="voice-interim' + (isRecEdit ? '' : ' hidden') + '" data-interim="' + esc(q.code) + '">' + (isRecEdit ? 'Đang thu âm...' : '') + '</div>' +
+              '<div id="editExtraWrap" class="' + (curExtra ? '' : 'hidden') + '" style="margin-top:8px;">' +
+                '<span class="q-extra-lbl">Dẫn chứng bổ sung</span>' +
+                '<textarea id="editExtraTa" class="q-edit-ta q-edit-extra-ta" placeholder="Dẫn chứng cụ thể, số liệu hoặc trích dẫn kèm theo...">' + esc(curExtra) + '</textarea>' +
+              '</div>' +
+              '<div class="q-edit-bar">' +
+                '<div class="q-edit-left">' +
+                  '<button class="btn btn-sec btn-sm voice-btn' + (isRecEdit ? ' recording' : '') + '" data-voice="' + esc(q.code) + '" data-voice-ctx="edit" type="button">' +
+                    (isRecEdit ? '<span class="rec-dot"></span><span>Dừng nói</span>' : (micSvg() + '<span>Nói</span>')) +
+                  '</button>' +
+                  (!curExtra ? '<button class="btn btn-ghost btn-sm" id="showEditExtraBtn" type="button">+ Dẫn chứng bổ sung</button>' : '') +
+                  '<span class="q-tag" data-wc="' + esc(q.code) + '">' + countWordsLocal(curAns) + ' từ</span>' +
+                '</div>' +
+                '<div class="q-edit-right">' +
+                  '<button class="btn btn-sec btn-sm" id="cancelEditBtn" type="button">Hủy</button>' +
+                  '<button class="btn btn-primary btn-sm" id="saveEditBtn" data-save-edit="' + esc(q.code) + '" type="button">Lưu</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+          } else {
+            var ansBlock = hasAns
+              ? '<div class="q-ans">' + esc(r.answer.trim()) + '</div>'
+              : '<div class="q-ans empty">Khách chưa trả lời câu này.</div>';
+            var extraBlock = (r && r.answer_extra && r.answer_extra.trim())
+              ? '<div class="q-extra"><span class="q-extra-lbl">Dẫn chứng bổ sung</span>' + esc(r.answer_extra.trim()) + '</div>'
+              : '';
+            var flagsBlock = '';
+            if (r && r.flags && r.flags.length) {
+              var chips = r.flags.map(function (f) {
+                return '<span class="flag-chip">' + esc(FLAG_LABELS[f] || f) + '</span>';
+              });
+              if (r.matched_vague && r.matched_vague.length) {
+                chips.push('<span class="flag-chip">Từ chung chung: "' + esc(r.matched_vague.join(' | ')) + '"</span>');
+              }
+              flagsBlock = '<div class="q-flags">' + chips.join('') + '</div>';
+            }
+            bodyBlock = ansBlock + extraBlock + flagsBlock;
+          }
+
+          return '<div class="q-row">' +
+            '<div class="q-head">' +
+              '<div class="q-title-line"><span class="q-code">' + esc(q.code) + '</span><span class="q-text">' + esc(qText) + '</span></div>' +
+              '<div class="q-head-right">' + metaTag + editBtn + copyOneBtn + '</div>' +
+            '</div>' +
+            bodyBlock +
+          '</div>';
+        }).join('');
+
+        S.currentGroups.push({ output: outName, items: itemsForCopy });
+        var groupCopyBtn = S.ansFilter !== 'live'
+          ? '<button class="mini-copy" data-copy-g="' + gIdx + '" type="button" title="Copy nhóm đầu ra này">Copy nhóm</button>'
+          : '';
+        html += '<div class="group-card">' +
+          '<div class="group-head">' +
+            '<span class="group-title">' + esc(outName) + '</span>' +
+            '<div class="group-right"><span>' + qs.length + ' câu</span>' + groupCopyBtn + '</div>' +
+          '</div>' + rowsHtml + '</div>';
+      });
+
+      var emptyMsg = S.ansFilter === 'live'
+        ? '<div class="panel" style="text-align:center;color:var(--green);background:var(--green-bg);border-color:var(--green-border);">Tất cả câu hỏi của Giai đoạn ' + ctx.stageNum + ' đã có câu trả lời! Anh/chị có thể xem hoặc sửa lại tại mục <strong>Tự điền</strong>.</div>'
+        : (S.ansFilter === 'attention'
+          ? '<div class="panel" style="text-align:center;color:var(--muted);">Không có câu trả lời nào cần lưu ý ở Giai đoạn ' + ctx.stageNum + '.</div>'
+          : '<div class="panel" style="text-align:center;color:var(--muted);">Không có câu hỏi nào thuộc bộ lọc này.</div>');
+
+      var box = document.getElementById('answersContainer');
+      box.innerHTML = html || emptyMsg;
+
+      // Bind Copy 1 câu
+      Array.prototype.forEach.call(box.querySelectorAll('[data-copy-q]'), function (btn) {
+        btn.addEventListener('click', function () {
+          var parts = btn.getAttribute('data-copy-q').split(':');
+          var item = S.currentGroups[parseInt(parts[0], 10)].items[parseInt(parts[1], 10)];
+          var text = '[' + item.code + '] ' + item.question + '\nTrả lời: ' + item.answer +
+            (item.extra ? '\nDẫn chứng bổ sung: ' + item.extra : '');
+          copyInstant(text, 'Đã copy câu ' + item.code, btn);
+        });
+      });
+
+      // Bind Copy nhóm
+      Array.prototype.forEach.call(box.querySelectorAll('[data-copy-g]'), function (btn) {
+        btn.addEventListener('click', function () {
+          var g = S.currentGroups[parseInt(btn.getAttribute('data-copy-g'), 10)];
+          var lines = ['ĐẦU RA: ' + g.output.toUpperCase(), ''];
+          g.items.filter(function (it) { return it.mode !== 'live' || it.answer; }).forEach(function (it) {
+            lines.push('[' + it.code + ']' + (it.mode === 'live' ? ' (Trực tiếp)' : '') + ' ' + it.question);
+            lines.push('Trả lời: ' + (it.answer || '(Chưa trả lời)'));
+            if (it.extra) lines.push('Dẫn chứng bổ sung: ' + it.extra);
+            lines.push('');
+          });
+          copyInstant(lines.join('\n').trim(), 'Đã copy nhóm "' + g.output + '"', btn);
+        });
+      });
+
+      // Bind mở Sửa inline trong Tự điền / Lưu ý
+      Array.prototype.forEach.call(box.querySelectorAll('[data-edit-q]'), function (btn) {
+        btn.addEventListener('click', function () {
+          stopVoiceRecording(true);
+          S.editingCode = btn.getAttribute('data-edit-q');
+          var c = getClientById(S.selectedClientId);
+          if (c) renderAnswersPane(computeClientStageContext(c, S.selectedStage, S.selectedRound));
+          var ta = document.getElementById('editAnsTa');
+          if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+        });
+      });
+
+      // Bind nút trong trình Sửa inline
+      var cancelEditBtn = document.getElementById('cancelEditBtn');
+      if (cancelEditBtn) {
+        cancelEditBtn.addEventListener('click', function () {
+          stopVoiceRecording(true);
+          S.editingCode = '';
+          var c = getClientById(S.selectedClientId);
+          if (c) renderAnswersPane(computeClientStageContext(c, S.selectedStage, S.selectedRound));
+        });
+      }
+      var showExtraBtn = document.getElementById('showEditExtraBtn');
+      if (showExtraBtn) {
+        showExtraBtn.addEventListener('click', function () {
+          document.getElementById('editExtraWrap').classList.remove('hidden');
+          showExtraBtn.classList.add('hidden');
+          document.getElementById('editExtraTa').focus();
+        });
+      }
+      var saveEditBtn = document.getElementById('saveEditBtn');
+      if (saveEditBtn) {
+        var editTa = document.getElementById('editAnsTa');
+        var editExtraTa = document.getElementById('editExtraTa');
+        var editCode = saveEditBtn.getAttribute('data-save-edit');
+        if (editTa) {
+          editTa.addEventListener('input', function () {
+            var wcEl = box.querySelector('[data-wc="' + editCode + '"]');
+            if (wcEl) wcEl.textContent = countWordsLocal(editTa.value) + ' từ';
+          });
+          editTa.addEventListener('keydown', function (e) {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+              e.preventDefault();
+              saveResponseFromUi(editCode, editTa.value, editExtraTa ? editExtraTa.value : '', saveEditBtn, false);
+            }
+          });
+        }
+        saveEditBtn.addEventListener('click', function () {
+          saveResponseFromUi(editCode, editTa ? editTa.value : '', editExtraTa ? editExtraTa.value : '', saveEditBtn, false);
+        });
+      }
+
+      // Bind các ô nhập & nút Lưu trong chế độ Trực tiếp
+      Array.prototype.forEach.call(box.querySelectorAll('[data-live-ta]'), function (ta) {
+        var code = ta.getAttribute('data-live-ta');
+        ta.addEventListener('input', function () {
+          S.liveDrafts[draftKeyFor(code)] = ta.value;
+          var wcEl = box.querySelector('[data-wc="' + code + '"]');
+          if (wcEl) wcEl.textContent = countWordsLocal(ta.value) + ' từ';
+        });
+        ta.addEventListener('keydown', function (e) {
+          if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+            e.preventDefault();
+            var sb = box.querySelector('[data-save-live="' + code + '"]');
+            saveResponseFromUi(code, ta.value, '', sb, true);
+          }
+        });
+      });
+
+      Array.prototype.forEach.call(box.querySelectorAll('[data-save-live]'), function (btn) {
+        btn.addEventListener('click', function () {
+          var code = btn.getAttribute('data-save-live');
+          var ta = box.querySelector('[data-live-ta="' + code + '"]');
+          saveResponseFromUi(code, ta ? ta.value : '', '', btn, true);
+        });
+      });
+
+      // Bind nút Nói (Web Speech API) cho cả Trực tiếp và Sửa inline
+      Array.prototype.forEach.call(box.querySelectorAll('[data-voice]'), function (btn) {
+        btn.addEventListener('click', function () {
+          var code = btn.getAttribute('data-voice');
+          var mode = btn.getAttribute('data-voice-ctx');
+          var ta = mode === 'edit'
+            ? document.getElementById('editAnsTa')
+            : box.querySelector('[data-live-ta="' + code + '"]');
+          toggleVoiceForField(code, ta);
+        });
+      });
+    }
+
+    function renderNotesPane(ctx) {
+      document.getElementById('notesStageNum').textContent = ctx.stageNum;
+      document.getElementById('notesCountTitle').textContent = ctx.stageNotes.length;
+
+      var sel = document.getElementById('noteCodeSelect');
+      var opts = ['<option value="RAW">Chung toàn buổi (RAW / Transcript)</option>'];
+      ctx.resolved.questions.forEach(function (q) {
+        var lbl = q.code + ' – ' + interpolateVars(q.question_live || q.question_self, ctx.client).slice(0, 52);
+        opts.push('<option value="' + esc(q.code) + '">' + esc(lbl) + '</option>');
+      });
+      sel.innerHTML = opts.join('');
+
+      var listEl = document.getElementById('notesHistoryList');
+      if (!ctx.stageNotes.length) {
+        listEl.innerHTML = '<div style="color:var(--muted);font-size:12.5px;">Chưa có ghi chú nào cho Giai đoạn ' + ctx.stageNum + '.</div>';
+        return;
+      }
+      listEl.innerHTML = ctx.stageNotes.slice().reverse().map(function (n) {
+        var timeStr = n.created_at ? n.created_at.slice(0, 16).replace('T', ' ') : '';
+        var tagBadge = n.code === 'RAW' ? 'Chung' : (n.code + (n.tag !== 'RAW' ? ' · ' + n.tag : ''));
+        return '<div class="note-row">' +
+          '<div class="note-head"><span class="q-code">' + esc(tagBadge) + '</span><span class="note-time">' + esc(timeStr) + '</span></div>' +
+          '<div>' + esc(n.note) + '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    function renderReviewPane(ctx) {
+      var r = ctx.currentReview || {};
+      var strip = document.getElementById('reviewSubmitStrip');
+      if (r.submitted_at) {
+        strip.className = 'submit-strip ok';
+        strip.textContent = 'Khách đã hoàn tất & gửi bài Giai đoạn ' + ctx.stageNum + ' lúc ' + r.submitted_at.slice(0, 16).replace('T', ' ');
+      } else {
+        strip.className = 'submit-strip wait';
+        strip.textContent = 'Khách chưa bấm nút Gửi bài cho Giai đoạn ' + ctx.stageNum + ' (' + ctx.doneCount + '/' + ctx.selfEligible.length + ' câu đã điền).';
+      }
+
+      document.getElementById('revStageNum').textContent = ctx.stageNum;
+      var labels = (S.snap.checklistLabels && S.snap.checklistLabels[ctx.stageNum]) || [];
+      for (var i = 0; i < 4; i++) {
+        document.getElementById('revC' + (i + 1)).checked = Boolean(r['check_' + (i + 1)]);
+        document.getElementById('revL' + (i + 1)).textContent = labels[i] || ('Tiêu chí ' + (i + 1));
+      }
+      document.getElementById('revNote').value = r.review_note || '';
+      document.getElementById('revSummary').value = r.approved_summary || '';
+      document.getElementById('completeNextBtn').textContent = ctx.stageNum < 4
+        ? ('Chốt GĐ ' + ctx.stageNum + ' & Mở GĐ ' + (ctx.stageNum + 1) + ' →')
+        : 'Chốt & Khóa GĐ 4';
+    }
+
+    function renderSettingsPane(c) {
+      document.getElementById('setName').value = c.name || '';
+      document.getElementById('setField').value = c.field || '';
+      document.getElementById('setDeadline').value = c.deadline || '';
+      document.getElementById('setBranch').value = c.branch || '';
+      document.getElementById('setStatus').value = c.status || 'active';
+      document.getElementById('setIntro').value = c.intro || '';
+      document.getElementById('setInclude').value = (c.include || []).join('|');
+      document.getElementById('setExclude').value = (c.exclude || []).join('|');
+      document.getElementById('setShowProbes').checked = Boolean(c.show_probes);
+
+      S.stageStates = {};
+      var html = [1, 2, 3, 4].map(function (st) {
+        var isLocked = (c.stages_locked || []).indexOf(st) !== -1;
+        var isOpen = (c.stages_open || []).indexOf(st) !== -1;
+        var val = isLocked ? 'locked' : (isOpen ? 'open' : 'closed');
+        S.stageStates[st] = val;
+        return '<div class="sm-card">' +
+          '<span class="sm-label">Giai đoạn ' + st + '</span>' +
+          '<div class="sm-seg" data-sm="' + st + '">' +
+            '<button class="sm-opt' + (val === 'closed' ? ' active' : '') + '" data-val="closed" type="button">Chưa mở</button>' +
+            '<button class="sm-opt' + (val === 'open' ? ' active' : '') + '" data-val="open" type="button">Đang mở</button>' +
+            '<button class="sm-opt' + (val === 'locked' ? ' active' : '') + '" data-val="locked" type="button">Đã khóa</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+      var matrix = document.getElementById('stageMatrix');
+      matrix.innerHTML = html;
+
+      Array.prototype.forEach.call(matrix.querySelectorAll('.sm-seg'), function (seg) {
+        var st = parseInt(seg.getAttribute('data-sm'), 10);
+        Array.prototype.forEach.call(seg.querySelectorAll('.sm-opt'), function (btn) {
+          btn.addEventListener('click', function () {
+            S.stageStates[st] = btn.getAttribute('data-val');
+            Array.prototype.forEach.call(seg.querySelectorAll('.sm-opt'), function (b) {
+              b.classList.toggle('active', b === btn);
+            });
+          });
+        });
+      });
+    }
+
+    // ==================== MUTATIONS (IN-MEMORY UPDATE -> ZERO FULL RELOAD!) ====================
+    function saveLiveNote() {
+      var txt = document.getElementById('noteInput').value.trim();
+      if (!txt) { showToast('Anh/chị chưa nhập nội dung ghi chú'); return; }
+      var code = document.getElementById('noteCodeSelect').value || 'RAW';
+      var btn = document.getElementById('saveNoteBtn');
+      btn.disabled = true; btn.textContent = 'Đang lưu...';
+
+      callServer('ccSaveLiveNotes', [{
+        client_id: S.selectedClientId,
+        stage: S.selectedStage,
+        round: S.selectedRound,
+        mode: code === 'RAW' ? 'raw' : 'coded',
+        code: code,
+        text: txt
+      }], function (res) {
+        btn.disabled = false; btn.textContent = 'Lưu ghi chú';
+        document.getElementById('noteInput').value = '';
+        if (!S.snap.notesByClient[S.selectedClientId]) S.snap.notesByClient[S.selectedClientId] = [];
+        (res.notes || []).forEach(function (n) { S.snap.notesByClient[S.selectedClientId].push(n); });
+        saveCachedSnapshot(S.snap);
+        renderWorkspace();
+        showToast('Đã lưu ghi chú — bản Copy AI đã tự cập nhật');
+      }, function (e) {
+        btn.disabled = false; btn.textContent = 'Lưu ghi chú';
+        showToast('Lỗi: ' + (e && e.message ? e.message : e));
+      });
+    }
+
+    function collectReviewPayload() {
+      return {
+        client_id: S.selectedClientId,
+        stage: S.selectedStage,
+        round: S.selectedRound,
+        check_1: document.getElementById('revC1').checked,
+        check_2: document.getElementById('revC2').checked,
+        check_3: document.getElementById('revC3').checked,
+        check_4: document.getElementById('revC4').checked,
+        review_note: document.getElementById('revNote').value,
+        approved_summary: document.getElementById('revSummary').value
+      };
+    }
+
+    function upsertLocalReview(cid, rec) {
+      if (!S.snap.reviewsByClient[cid]) S.snap.reviewsByClient[cid] = [];
+      var list = S.snap.reviewsByClient[cid];
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].stage === rec.stage && (list[i].round || 'R1') === (rec.round || 'R1')) {
+          list[i] = Object.assign({}, list[i], rec);
+          return;
+        }
+      }
+      list.push(Object.assign({ submitted_at: '' }, rec));
+    }
+
+    function saveReviewOnly() {
+      var btn = document.getElementById('saveReviewBtn');
+      btn.disabled = true; btn.textContent = 'Đang lưu...';
+      var payload = collectReviewPayload();
+      callServer('ccSaveStageReview', [payload], function (res) {
+        btn.disabled = false; btn.textContent = 'Lưu nháp';
+        upsertLocalReview(S.selectedClientId, res.review || payload);
+        saveCachedSnapshot(S.snap);
+        renderWorkspace();
+        showToast('Đã lưu nghiệm thu GĐ ' + S.selectedStage);
+      }, function (e) {
+        btn.disabled = false; btn.textContent = 'Lưu nháp';
+        showToast('Lỗi: ' + (e && e.message ? e.message : e));
+      });
+    }
+
+    function completeAndOpenNext() {
+      var btn = document.getElementById('completeNextBtn');
+      btn.disabled = true; btn.textContent = 'Đang xử lý...';
+      var payload = collectReviewPayload();
+      callServer('ccCompleteAndOpenNextStage', [payload], function (res) {
+        btn.disabled = false;
+        upsertLocalReview(S.selectedClientId, res.review || payload);
+        var c = getClientById(S.selectedClientId);
+        if (c) {
+          c.stages_open = res.stages_open || c.stages_open;
+          c.stages_locked = res.stages_locked || c.stages_locked;
+        }
+        recomputeClientSummaries();
+        if (res.opened_stage) S.selectedStage = res.opened_stage;
+        renderClientList();
+        renderWorkspace();
+
+        showQuickBanner(
+          res.opened_stage ? ('Đã khóa GĐ ' + res.locked_stage + ' & mở GĐ ' + res.opened_stage) : ('Đã chốt & khóa GĐ ' + res.locked_stage),
+          'Link cũ của khách đã tự mở giai đoạn mới — bấm nút bên cạnh để gửi Zalo ngay.',
+          c ? c.link : '',
+          res.zaloNextStage
+        );
+        showToast('Đã chuyển giai đoạn thành công');
+      }, function (e) {
+        btn.disabled = false;
+        renderWorkspace();
+        showToast('Lỗi: ' + (e && e.message ? e.message : e));
+      });
+    }
+
+    function saveClientSettings() {
+      var btn = document.getElementById('saveSettingsBtn');
+      btn.disabled = true; btn.textContent = 'Đang lưu...';
+      var openArr = [], lockArr = [];
+      [1, 2, 3, 4].forEach(function (st) {
+        var v = S.stageStates[st];
+        if (v === 'open') openArr.push(st);
+        else if (v === 'locked') { openArr.push(st); lockArr.push(st); }
+      });
+
+      callServer('ccUpdateClient', [{
+        client_id: S.selectedClientId,
+        name: document.getElementById('setName').value,
+        field: document.getElementById('setField').value,
+        deadline: document.getElementById('setDeadline').value,
+        branch: document.getElementById('setBranch').value,
+        status: document.getElementById('setStatus').value,
+        intro: document.getElementById('setIntro').value,
+        include: document.getElementById('setInclude').value,
+        exclude: document.getElementById('setExclude').value,
+        show_probes: document.getElementById('setShowProbes').checked,
+        stages_open: openArr,
+        stages_locked: lockArr
+      }], function (res) {
+        btn.disabled = false; btn.textContent = 'Lưu thay đổi';
+        if (res.client) {
+          for (var i = 0; i < S.snap.clients.length; i++) {
+            if (S.snap.clients[i].client_id === res.client.client_id) {
+              S.snap.clients[i] = res.client;
+              break;
+            }
+          }
+        }
+        recomputeClientSummaries();
+        renderClientList();
+        renderWorkspace();
+        showToast('Đã cập nhật hồ sơ khách hàng');
+      }, function (e) {
+        btn.disabled = false; btn.textContent = 'Lưu thay đổi';
+        showToast('Lỗi: ' + (e && e.message ? e.message : e));
+      });
+    }
+
+    function submitCreateClient() {
+      var err = document.getElementById('createErr');
+      err.textContent = '';
+      var btn = document.getElementById('submitCreateBtn');
+      btn.disabled = true; btn.textContent = 'Đang tạo...';
+
+      callServer('ccCreateClient', [{
+        name: document.getElementById('newName').value,
+        field: document.getElementById('newField').value,
+        template: document.getElementById('newTemplate').value,
+        deadline: document.getElementById('newDeadline').value,
+        intro: document.getElementById('newIntro').value
+      }], function (res) {
+        btn.disabled = false; btn.textContent = 'Tạo khách & Lấy link';
+        closeCreateModal();
+        if (res.client) S.snap.clients.push(res.client);
+        recomputeClientSummaries();
+        document.getElementById('totalClientCount').textContent = S.summaries.length;
+        document.getElementById('emptyState').classList.add('hidden');
+        document.getElementById('workspaceWrap').classList.remove('hidden');
+
+        S.selectedClientId = res.client_id;
+        S.selectedStage = 1;
+        S.selectedRound = 'R1';
+        setActiveTab('answers');
+        renderClientList();
+        renderWorkspace();
+
+        showQuickBanner(
+          'Đã tạo hồ sơ ' + res.client_id + ' thành công',
+          res.hasBaseUrl ? res.link : 'Chưa cài đặt URL GitHub Pages trong menu Quản trị hệ thống.',
+          res.link,
+          res.zaloInvite
+        );
+        showToast('Đã tạo khách hàng ' + res.client_id);
+      }, function (e) {
+        btn.disabled = false; btn.textContent = 'Tạo khách & Lấy link';
+        err.textContent = e && e.message ? e.message : String(e);
+      });
+    }
+
+    // ==================== UI CONTROLS & HELPERS ====================
+    function setActiveTab(tab) {
+      S.activeTab = tab;
+      Array.prototype.forEach.call(document.querySelectorAll('.ws-tab'), function (b) {
+        b.classList.toggle('active', b.getAttribute('data-tab') === tab);
+      });
+      document.getElementById('paneAnswers').classList.toggle('hidden', tab !== 'answers');
+      document.getElementById('paneNotes').classList.toggle('hidden', tab !== 'notes');
+      document.getElementById('paneReview').classList.toggle('hidden', tab !== 'review');
+      document.getElementById('paneSettings').classList.toggle('hidden', tab !== 'settings');
+    }
+
+    function showQuickBanner(title, sub, link, zalo) {
+      S.quickLinkText = link || '';
+      S.quickZaloText = zalo || '';
+      document.getElementById('quickBannerTitle').textContent = title;
+      document.getElementById('quickBannerSub').textContent = sub;
+      document.getElementById('quickBanner').classList.remove('hidden');
+    }
+    function hideQuickBanner() { document.getElementById('quickBanner').classList.add('hidden'); }
+
+    function openCreateModal() {
+      document.getElementById('newName').value = '';
+      document.getElementById('newField').value = '';
+      document.getElementById('newDeadline').value = '';
+      document.getElementById('newIntro').value = '';
+      document.getElementById('createErr').textContent = '';
+      document.getElementById('createModal').classList.remove('hidden');
+      document.getElementById('newName').focus();
+    }
+    function closeCreateModal() { document.getElementById('createModal').classList.add('hidden'); }
+
+    function openPreviewModal() {
+      updatePreviewText();
+      document.getElementById('previewModal').classList.remove('hidden');
+    }
+    function closePreviewModal() { document.getElementById('previewModal').classList.add('hidden'); }
+    function updatePreviewText() {
+      document.getElementById('previewText').value = getExportByKey(S.previewKey);
+    }
+
+    function closeExportPop() { document.getElementById('exportPop').classList.add('hidden'); }
+
+    function copyInstant(text, successMsg, triggerBtn) {
+      if (!text) { showToast('Chưa có nội dung để copy'); return; }
+      var ok = false;
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed'; ta.style.left = '-9999px'; ta.style.top = '0';
+        document.body.appendChild(ta);
+        ta.select(); ta.setSelectionRange(0, text.length);
+        ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch (e) {}
+
+      if (!ok && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () {
+          flashCopied(successMsg, triggerBtn);
+        }).catch(function () {
+          showToast('Trình duyệt chặn copy — anh/chị chọn Xuất AI / Khác → Xem trước để copy');
+        });
+        return;
+      }
+      flashCopied(successMsg, triggerBtn);
+    }
+
+    function flashCopied(msg, btn) {
+      showToast(msg);
+      if (btn) {
+        var span = btn.querySelector('span') || btn;
+        var orig = span.getAttribute('data-orig') || span.textContent;
+        span.setAttribute('data-orig', orig);
+        span.textContent = 'Đã copy ✓';
+        clearTimeout(btn._ft);
+        btn._ft = setTimeout(function () { span.textContent = orig; }, 1400);
+      }
+    }
+
+    var toastTimer = null;
+    function showToast(msg) {
+      var el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.remove('hide');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { el.classList.add('hide'); }, 2400);
+    }
+
+    function esc(s) {
+      return String(s === undefined || s === null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ==================== EVENT BINDING & BOOT ====================
+    function handlePinSubmit(e) {
+      e.preventDefault();
+      var inp = document.getElementById('pinInput');
+      var pin = String(inp.value || '').trim();
+      var remember = document.getElementById('pinRemember').checked;
+      var errEl = document.getElementById('pinError');
+      var submitBtn = document.getElementById('pinSubmitBtn');
+
+      if (!pin) {
+        errEl.textContent = 'Vui lòng nhập mã PIN quản trị.';
+        errEl.classList.remove('hidden');
+        inp.focus();
+        return;
+      }
+
+      errEl.classList.add('hidden');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Đang xác thực...';
+      saveAdminPin(pin, remember);
+
+      callServer('ccLoadSnapshot', [], function (snap) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Mở Trung tâm Điều khiển';
+        inp.value = '';
+        hidePinGate();
+        hydrateSnapshot(snap, false);
+      }, function (err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Mở Trung tâm Điều khiển';
+        var msg = (err && err.message) ? err.message : 'Không thể xác thực mã PIN.';
+        showPinGate(msg);
+      });
+    }
+
+    function bindEvents() {
+      document.getElementById('openCreateBtn').addEventListener('click', openCreateModal);
+      document.getElementById('refreshBtn').addEventListener('click', function () { refreshFromServer(false); });
+      document.getElementById('pinForm').addEventListener('submit', handlePinSubmit);
+      document.getElementById('logoutBtn').addEventListener('click', function () {
+        if (!confirm('Khóa Trung tâm Điều khiển và xóa mã PIN đã lưu trên trình duyệt này?')) return;
+        clearAdminSession();
+        S.snap = null;
+        document.getElementById('workspaceWrap').classList.add('hidden');
+        document.getElementById('emptyState').classList.add('hidden');
+        document.getElementById('clientList').innerHTML = '';
+        document.getElementById('totalClientCount').textContent = '0';
+        showPinGate('');
+      });
+      document.getElementById('searchInput').addEventListener('input', function (e) {
+        S.searchQuery = e.target.value.trim().toLowerCase();
+        renderClientList();
+      });
+
+      Array.prototype.forEach.call(document.querySelectorAll('.f-tab'), function (btn) {
+        btn.addEventListener('click', function () {
+          S.filterStatus = btn.getAttribute('data-filter');
+          Array.prototype.forEach.call(document.querySelectorAll('.f-tab'), function (b) { b.classList.toggle('active', b === btn); });
+          renderClientList();
+        });
+      });
+
+      Array.prototype.forEach.call(document.querySelectorAll('.st-btn'), function (btn) {
+        btn.addEventListener('click', function () {
+          var st = parseInt(btn.getAttribute('data-stage'), 10);
+          if (st !== S.selectedStage) {
+            stopVoiceRecording(true);
+            S.editingCode = '';
+            S.selectedStage = st;
+            renderWorkspace();
+          }
+        });
+      });
+
+      document.getElementById('wsRound').addEventListener('change', function (e) {
+        S.selectedRound = e.target.value.trim() || 'R1';
+        renderWorkspace();
+      });
+
+      // Primary 1-Click Copy (0ms!)
+      document.getElementById('copyAnswersBtn').addEventListener('click', function () {
+        copyInstant(getExportByKey('cleanAnswers'), 'Đã copy toàn bộ câu trả lời GĐ ' + S.selectedStage, this);
+      });
+      document.getElementById('copyLinkBtn').addEventListener('click', function () {
+        var c = getClientById(S.selectedClientId);
+        if (c) copyInstant(c.link, 'Đã copy đường link gửi khách', this);
+      });
+      document.getElementById('copyZaloBtn').addEventListener('click', function () {
+        copyInstant(getExportByKey('zaloSmart'), 'Đã copy mẫu tin nhắn Zalo', this);
+      });
+      document.getElementById('quickCopyLinkBtn').addEventListener('click', function () {
+        copyInstant(S.quickLinkText, 'Đã copy đường link gửi khách', this);
+      });
+      document.getElementById('quickCopyZaloBtn').addEventListener('click', function () {
+        copyInstant(S.quickZaloText, 'Đã copy tin nhắn Zalo', this);
+      });
+
+      // Export Popover Menu
+      document.getElementById('exportMenuBtn').addEventListener('click', function (e) {
+        e.stopPropagation();
+        document.getElementById('exportPop').classList.toggle('hidden');
+      });
+      document.addEventListener('click', function (e) {
+        if (!e.target.closest('.menu-anchor')) closeExportPop();
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('#exportPop .pop-item'), function (item) {
+        item.addEventListener('click', function () {
+          var kind = item.getAttribute('data-export');
+          closeExportPop();
+          if (kind === 'preview') { openPreviewModal(); return; }
+          var msgMap = {
+            allStagesAnswers: 'Đã copy gộp toàn bộ các giai đoạn',
+            prereadLlm: 'Đã copy Bản đọc trước cho AI',
+            evalLlm: 'Đã copy Bản đánh giá cho AI'
+          };
+          copyInstant(getExportByKey(kind), msgMap[kind] || 'Đã copy');
+        });
+      });
+      document.getElementById('anonToggle').addEventListener('change', function (e) {
+        S.anonymize = e.target.checked;
+        showToast(S.anonymize ? 'Đã bật ẩn tên khi copy' : 'Đã tắt ẩn tên');
+      });
+
+      // Preview modal
+      document.getElementById('previewCopyBtn').addEventListener('click', function () {
+        copyInstant(document.getElementById('previewText').value, 'Đã copy nội dung xem trước', this);
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('#previewModal .chip'), function (btn) {
+        btn.addEventListener('click', function () {
+          S.previewKey = btn.getAttribute('data-prev');
+          Array.prototype.forEach.call(document.querySelectorAll('#previewModal .chip'), function (b) { b.classList.toggle('active', b === btn); });
+          updatePreviewText();
+        });
+      });
+
+      // Tabs & Answer filters
+      Array.prototype.forEach.call(document.querySelectorAll('.ws-tab'), function (tab) {
+        tab.addEventListener('click', function () {
+          stopVoiceRecording(true);
+          setActiveTab(tab.getAttribute('data-tab'));
+        });
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('#paneAnswers .chip'), function (btn) {
+        btn.addEventListener('click', function () {
+          stopVoiceRecording(true);
+          S.editingCode = '';
+          S.ansFilter = btn.getAttribute('data-ansfilter');
+          Array.prototype.forEach.call(document.querySelectorAll('#paneAnswers .chip'), function (b) { b.classList.toggle('active', b === btn); });
+          var c = getClientById(S.selectedClientId);
+          if (c) renderAnswersPane(computeClientStageContext(c, S.selectedStage, S.selectedRound));
+        });
+      });
+
+      // Form submissions + keyboard shortcuts
+      document.getElementById('saveNoteBtn').addEventListener('click', saveLiveNote);
+      document.getElementById('noteInput').addEventListener('keydown', function (e) {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveLiveNote(); }
+      });
+      document.getElementById('saveReviewBtn').addEventListener('click', saveReviewOnly);
+      document.getElementById('completeNextBtn').addEventListener('click', completeAndOpenNext);
+      document.getElementById('saveSettingsBtn').addEventListener('click', saveClientSettings);
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { closeExportPop(); closeCreateModal(); closePreviewModal(); }
+      });
+    }
+
+    function init() {
+      bindEvents();
+      var injected = readInjectedSnapshot();
+      if (injected) {
+        hydrateSnapshot(injected, false);
+        return;
+      }
+      if (isStandaloneWebMode()) {
+        document.getElementById('logoutBtn').classList.remove('hidden');
+        var pin = getStoredAdminPin();
+        if (!pin) {
+          showPinGate('');
+          return;
+        }
+        var cached = readCachedSnapshot();
+        if (cached) {
+          // Mở tức thì 0ms từ bộ nhớ trình duyệt, đồng thời âm thầm đồng bộ dữ liệu mới nhất ở nền
+          hydrateSnapshot(cached, false);
+          refreshFromServer(true);
+          return;
+        }
+        document.getElementById('initialLoading').classList.remove('hidden');
+        callServer('ccLoadSnapshot', [], function (snap) {
+          hydrateSnapshot(snap, false);
+        }, function (e) {
+          document.getElementById('initialLoading').classList.add('hidden');
+          if (!e || (e.code !== 'INVALID_PIN' && e.code !== 'ADMIN_PIN_NOT_SET')) {
+            hydrateSnapshot({ error: e && e.message ? e.message : String(e) }, false);
+          }
+        });
+        return;
+      }
+      // Fallback cho môi trường kiểm thử cục bộ hoặc khi mở không qua template
+      callServer('ccLoadSnapshot', [], function (snap) {
+        hydrateSnapshot(snap, false);
+      }, function (e) {
+        hydrateSnapshot({ error: e && e.message ? e.message : String(e) }, false);
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -9,8 +9,8 @@ function doGet() {
   return jsonResponse_({
     ok: true,
     data: {
-      service: 'THCN Interview Client API',
-      version: '3.1',
+      service: 'THCN Interview API',
+      version: '3.3',
       note: 'Sử dụng POST text/plain với JSON payload.'
     }
   });
@@ -30,9 +30,14 @@ function doPost(e) {
     }
 
     var action = String(body.action || '').trim();
-    var token = String(body.token || '').trim();
     var payload = body.payload || {};
 
+    if (action.indexOf('admin:') === 0) {
+      var adminPin = String(body.admin_pin || '').trim();
+      return jsonResponse_(dispatchAdminAction_(action.slice(6), adminPin, payload));
+    }
+
+    var token = String(body.token || '').trim();
     return jsonResponse_(dispatchClientAction_(action, token, payload));
   } catch (err) {
     return jsonResponse_({
@@ -40,6 +45,52 @@ function doPost(e) {
       code: 'SERVER_ERROR',
       error: err && err.message ? err.message : 'Lỗi máy chủ không xác định.'
     });
+  }
+}
+
+function dispatchAdminAction_(adminAction, adminPin, payload) {
+  if (isAdminRateLimited_()) {
+    return { ok: false, code: 'RATE_LIMITED', error: 'Nhập sai mã PIN quá nhiều lần. Anh/chị vui lòng thử lại sau 5 phút.' };
+  }
+
+  if (!hasAdminPin_()) {
+    return {
+      ok: false,
+      code: 'ADMIN_PIN_NOT_SET',
+      error: 'Chưa cài đặt mã PIN Trung tâm Web. Anh/chị mở Google Sheet → menu ⚙️ Tư vấn THCN → Quản trị hệ thống → Đặt mã PIN Trung tâm Web (chỉ cần cài 1 lần).'
+    };
+  }
+
+  if (!adminPin || !verifyAdminPin_(adminPin)) {
+    recordBadAdminAttempt_();
+    return { ok: false, code: 'INVALID_PIN', error: 'Mã PIN không đúng. Anh/chị vui lòng kiểm tra lại.' };
+  }
+
+  try {
+    switch (adminAction) {
+      case 'ccLoadSnapshot':
+        return { ok: true, data: ccLoadSnapshot() };
+      case 'ccCreateClient':
+        return { ok: true, data: ccCreateClient(payload) };
+      case 'ccUpdateClient':
+        return { ok: true, data: ccUpdateClient(payload) };
+      case 'ccSaveResponse':
+        return { ok: true, data: ccSaveResponse(payload) };
+      case 'ccSaveLiveNotes':
+        return { ok: true, data: ccSaveLiveNotes(payload) };
+      case 'ccSaveStageReview':
+        return { ok: true, data: ccSaveStageReview(payload) };
+      case 'ccCompleteAndOpenNextStage':
+        return { ok: true, data: ccCompleteAndOpenNextStage(payload) };
+      default:
+        return { ok: false, code: 'UNKNOWN_ADMIN_ACTION', error: 'Hành động quản trị không được hỗ trợ.' };
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      code: 'ADMIN_ERROR',
+      error: err && err.message ? err.message : 'Lỗi xử lý thao tác quản trị.'
+    };
   }
 }
 

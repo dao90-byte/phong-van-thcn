@@ -2,8 +2,9 @@
 
 Tài liệu bàn giao nhanh để tiếp tục phát triển và vận hành dự án trong phiên làm việc mới.
 
-## 1. Tổng quan kiến trúc (v3.2)
+## 1. Tổng quan kiến trúc (v3.3)
 - **Web App khách hàng (GitHub Pages)**: thư mục `docs/` → https://dao90-byte.github.io/phong-van-thcn/
+- **Trung tâm Điều khiển Web độc lập (GitHub Pages)**: `docs/admin.html` → https://dao90-byte.github.io/phong-van-thcn/admin.html (đồng bộ tự động từ `gas/CommandCenter.html`, bảo vệ bằng mã PIN SHA-256 + tự nhớ trình duyệt + cache `localStorage` mở tức thì 0ms)
 - **Backend API & Trung tâm Điều khiển (Google Apps Script)**: thư mục `gas/` (9 tệp phẳng đồng bộ sang nhánh `gas`)
 - **Cơ sở dữ liệu (Google Sheets)**: 8 tab chia 3 vùng (`Dashboard`, `Questions`, `Templates`, `Config`, `Clients`, `Responses`, `LiveNotes`, `StageReviews`)
 
@@ -16,11 +17,12 @@ Tài liệu bàn giao nhanh để tiếp tục phát triển và vận hành d�
   - Locale: `vi_VN`, TimeZone: `Asia/Saigon`
 - **Google Apps Script (`daothuan90@gmail.com`)**: `THCN_App`
   - Project ID: `1h8RuMF8BA6NCb0Q13AczVN8bS1H3qzxaR1dMtfX4zeBa9Hnx0rb9mqym`
-  - Bản triển khai hiện tại: **Phiên bản 7 (v3.2)**
+  - Bản triển khai: **v3.3** (cần Pull từ nhánh `gas` → Sửa bản triển khai hiện tại → Phiên bản mới, giữ nguyên URL `/exec`)
 - **Web App `/exec` URL (BẮT BUỘC GIỮ NGUYÊN khi cập nhật bản triển khai)**:
   - `https://script.google.com/macros/s/AKfycbwDPT-h3y3jDlGEmD2-HjABDeMgAoaIllfir8StmlyTV69pRM8eXYfKkgyvem-O035N/exec`
 
-## 3. Tính năng hiện có (đến v3.2)
+## 3. Tính năng hiện có (đến v3.3)
+- **Trung tâm Điều khiển Web độc lập (`docs/admin.html`)**: ghim bookmark trên trình duyệt, mở toàn màn hình tức thì (0ms từ cache `localStorage` + tự đồng bộ nền từ Sheet), không cần mở Google Sheets. Bảo vệ bằng mã PIN băm SHA-256 (`PROP_KEYS.ADMIN_PIN_HASH`, cài 1 lần trong menu Google Sheet `⚙️ Tư vấn THCN → Quản trị hệ thống → Đặt mã PIN Trung tâm Web`), chống dò mã PIN (rate-limit 10 lần/5 phút).
 - **Tải nhanh 0ms**: `ccLoadSnapshot()` đọc mỗi tab đúng 1 lượt (≤ 4 lượt đọc khi cache nóng), nhúng JSON trực tiếp vào `CommandCenter.html` khi mở hộp thoại; chuyển khách, chuyển giai đoạn và Copy 1-click xử lý hoàn toàn trên trình duyệt.
 - **Tab Câu trả lời chia 3 mục MECE**:
   - `Tự điền`: câu tự điền + câu phỏng vấn trực tiếp đã lưu; hỗ trợ **chỉnh sửa trực tiếp tại chỗ** (`ccSaveResponse`) và tự cập nhật bản Copy / Xuất AI.
@@ -32,7 +34,7 @@ Tài liệu bàn giao nhanh để tiếp tục phát triển và vận hành d�
 Máy dùng `jsc` tích hợp sẵn của macOS và `python3` (không cần `node`):
 
 ```bash
-# Chạy toàn bộ test backend GAS (45 tests) & logic giao diện khách (21 tests)
+# Chạy toàn bộ test backend GAS (53 tests) & logic giao diện khách (21 tests)
 /System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc tests/test_gas.js
 /System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc tests/test_client_logic.js
 

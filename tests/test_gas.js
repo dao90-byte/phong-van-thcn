@@ -305,6 +305,55 @@ assert(evalWithLive.indexOf('- Trả lời phỏng vấn trực tiếp:') !== -1
   evalWithLive.indexOf('tin tưởng chuyên môn niềng răng') !== -1,
   'buildEvalMarkdown_ đưa câu trả lời phỏng vấn trực tiếp vào xuất AI đánh giá');
 
+// ==================== TEST 11: Trung tâm Điều khiển Web độc lập (Admin PIN + admin:* API) ====================
+function callAdminPost(adminAction, pin, payload) {
+  var out = doPost({
+    postData: {
+      contents: JSON.stringify({ action: 'admin:' + adminAction, admin_pin: pin, payload: payload || {} })
+    }
+  });
+  return JSON.parse(out.getContent());
+}
+
+var noPinRes = callAdminPost('ccLoadSnapshot', '123456');
+assert(!noPinRes.ok && noPinRes.code === 'ADMIN_PIN_NOT_SET',
+  'admin:* chặn truy cập khi chưa cài mã PIN (ADMIN_PIN_NOT_SET)');
+
+var shortPinErr = false;
+try { setAdminPin_('123'); } catch (e) { shortPinErr = true; }
+assert(shortPinErr, 'setAdminPin_ từ chối mã PIN ngắn dưới 4 ký tự');
+
+setAdminPin_('246810');
+assert(hasAdminPin_() && verifyAdminPin_('246810') && !verifyAdminPin_('999999'),
+  'setAdminPin_ lưu băm SHA-256 và xác thực đúng/sai mã PIN');
+
+var wrongPinRes = callAdminPost('ccLoadSnapshot', '000000');
+assert(!wrongPinRes.ok && wrongPinRes.code === 'INVALID_PIN',
+  'admin:* từ chối sai mã PIN (INVALID_PIN)');
+
+var okSnapRes = callAdminPost('ccLoadSnapshot', '246810');
+assert(okSnapRes.ok && okSnapRes.data && okSnapRes.data.clients.length === 3 && okSnapRes.data.questions.length === 39,
+  'admin:ccLoadSnapshot trả đầy đủ snapshot khi đúng mã PIN');
+
+var okCreateWeb = callAdminPost('ccCreateClient', '246810', {
+  name: 'Phạm Quốc Bảo',
+  field: 'Kiến trúc nội thất',
+  template: 'chuan'
+});
+assert(okCreateWeb.ok && okCreateWeb.data.client_id === 'C004' && okCreateWeb.data.client.name === 'Phạm Quốc Bảo',
+  'admin:ccCreateClient tạo khách mới qua Web API thành công');
+
+var badAdminAction = callAdminPost('setupWorkbook', '246810');
+assert(!badAdminAction.ok && badAdminAction.code === 'UNKNOWN_ADMIN_ACTION',
+  'admin:* chỉ cho phép đúng 7 hàm trong danh sách trắng (chặn hàm ngoài danh sách)');
+
+for (var pIdx = 0; pIdx < 11; pIdx++) {
+  callAdminPost('ccLoadSnapshot', 'wrong_pin_' + pIdx);
+}
+var adminRlRes = callAdminPost('ccLoadSnapshot', '246810');
+assert(!adminRlRes.ok && adminRlRes.code === 'RATE_LIMITED',
+  'Admin rate-limit kích hoạt sau >= 10 lần nhập sai mã PIN');
+
 print('\n==============================');
-print('GAS v3.1 TESTS: ' + passed + ' passed, ' + failed + ' failed');
-if (failed > 0) throw new Error('GAS v3.1 test suite failed with ' + failed + ' failures');
+print('GAS v3.3 TESTS: ' + passed + ' passed, ' + failed + ' failed');
+if (failed > 0) throw new Error('GAS v3.3 test suite failed with ' + failed + ' failures');
